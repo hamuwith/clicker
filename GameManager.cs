@@ -7,13 +7,18 @@ using DG.Tweening;
 
 public class GameManager : MonoBehaviour
 {
+    /*すること
+    空中で起き上がるバグ
+    クリア時処理
+    ボス召喚時処理敵消す
+    ステータスアップポップアップテキスト
+    */
     public static GameManager gameManager;//this
     public static PlayerManager playerManager;//プレイヤー
     public static PlayerManagerSub playerManagerSub;//プレイヤー
     public static Boss boss;//ボス
     public static AttackCollisionManager attackCollisionManager;//当たり判定プレイヤー用
     public static AttackCollisionManager attackCollisionManagerBoss;//当たり判定ボス用
-    public static MatchTargetWeightMask weightMask;//未使用
     public static CameraManager cameraManager;//カメラ
     public static EnemyManager enemyManager;//敵マネージャー
     public static DamageManager damageManager;//プレイヤーのダメージ表示
@@ -23,6 +28,7 @@ public class GameManager : MonoBehaviour
     public static Effect[] effect;//状態異常の設定
     public static PopTextManager popTextManager;//吹き出しマネージャー
     public static CutIn cutIn;//スキルカットイン
+    public static TutorialManager tutorialManager;//チュートリアル
     public UIDocument uIDocument;//UIスキルボタン
     public UIDocument uIDocumentUpgrade;//UIレベルアップボタン
     bool skillPlayer;//スキルボタンクリック時true
@@ -55,6 +61,7 @@ public class GameManager : MonoBehaviour
     readonly float transitionSpeed = 0.5f;//倒されたときの視界のスピード
     readonly float transitionReSpeed = 0.2f;//蘇生時の視界のスピード
     float transitionCount;//倒されたときのトランジションカウント
+    [SerializeField] Clear clear;
     public int gold 
     { 
         get 
@@ -97,7 +104,7 @@ public class GameManager : MonoBehaviour
             playerManagerSub.gameObject.SetActive(true);
             playerManagerSub.SetAvtive(true);
         }
-        StartCoroutine(EnemyDestroy());
+        StartCoroutine(Killed());
         yield return new WaitForSeconds(1f);
         playerManagerSub.Resuscitation();
         do
@@ -108,14 +115,20 @@ public class GameManager : MonoBehaviour
         yield return TransitionSub(1f, transitionSpeed);
         blurMaterial.SetInt(isBlurProp, 0);
     }
+    //倒された時
+    IEnumerator Killed()
+    {
+        playerManager.distance = 0f;
+        yield return EnemyDestroy(true);
+        enemyManager.ClearStage();
+    }
     //敵の削除
-    IEnumerator EnemyDestroy()
+    public IEnumerator EnemyDestroy(bool all)
     {
         bool end = true;
-        playerManager.distance = 0f;
         while (end)
         {
-            end = enemyManager.DestroyEnemy();
+            end = enemyManager.DestroyEnemy(all);
             yield return null;
         }
     }
@@ -153,7 +166,6 @@ public class GameManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
         gameManager = this;
         SceneManager.sceneLoaded += OnSceneLoaded;
-        weightMask = new MatchTargetWeightMask(Vector3.one, 0f);
         //状態異常のセット
         effect = new Effect[(int)AttackCollisionValue.Effect.Length - 1];
         for(int i = 0; i < (int)AttackCollisionValue.Effect.Length - 1; i++)
@@ -173,8 +185,6 @@ public class GameManager : MonoBehaviour
         uIDocument.rootVisualElement.RegisterCallback<MouseDownEvent>(ClickEventAttack);
         //ステータス表UIToolkit
         List<Label> labelList = uIDocumentUpgrade.rootVisualElement.Query<Label>().ToList();
-        //character = new Character();
-        //characterSub = new Character();
         character.nameLabel = labelList[72];
         character.level.lvLabel = labelList[73];
         character.unlockLabel = labelList[140];
@@ -240,7 +250,6 @@ public class GameManager : MonoBehaviour
             characterSub.skills[i].unlockValueLabel.RegisterCallback<MouseDownEvent, Skill>(SkillUnlock, characterSub.skills[i]);
         }
         //初期化
-        DisplayStatus(null);
         transitionMaterial.SetFloat(transitionProp, 1f);
         blurMaterial.SetInt(isBlurProp, 0);
     }
@@ -273,6 +282,7 @@ public class GameManager : MonoBehaviour
         if (character.unlockValue > gold) return;
         character.unlock = true;
         gold -= character.unlockValue;
+        tutorialManager?.SetActive(4, true);
     }
     //スキルのアンロック
     void SkillUnlock(MouseDownEvent mouseDownEvent, Skill skill)
@@ -342,6 +352,7 @@ public class GameManager : MonoBehaviour
     public void SetExp(int num)
     {
         gold += num;
+        if (gold >= 100) tutorialManager.SetActive(2, true);
     }
     //購入できるかの表示
     void StatusSet(Character character, int gold)
@@ -377,11 +388,14 @@ public class GameManager : MonoBehaviour
         {
             uIDocumentUpgrade.rootVisualElement.style.top = 0f;
             arrowLabel.style.scale = hanten;
+            tutorialManager.SetActive(2, false);
         }
         else
         {
             uIDocumentUpgrade.rootVisualElement.style.top = hiddenPosition;
             arrowLabel.style.scale = Vector2.one;
+            tutorialManager.SetActive(5, false);
+            tutorialManager.SetActive(6, false);
         }
     }
     //スキルボタンのクールタイムセット
@@ -420,7 +434,7 @@ public class GameManager : MonoBehaviour
     {
         Character character0 = playerManager0 == playerManager ? character : characterSub;
         ChangeNumIn(ref num, playerManager0);
-        cutIn.SetCutIn(character0.skills[num].nameLabel.text, playerManager0.skillGradient[num].Evaluate(1f),playerManager0);
+        StartCoroutine(cutIn.SetCutIn(character0.skills[num].nameLabel.text, playerManager0.skillGradient[num].Evaluate(1f),playerManager0));
     }
     //カットインの表示
     //IEnumerator SetCutInMorning()
@@ -545,6 +559,11 @@ public class GameManager : MonoBehaviour
             background.Update0();
         }
     }
+    public void Clear()
+    {
+        clear.gameObject.SetActive(true);
+    }
+    //シーン読み込み時
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         DOTween.SetTweensCapacity(2000, 50);
@@ -578,6 +597,8 @@ public class GameManager : MonoBehaviour
         attackCollisionManager.Start0();
         attackCollisionManagerBoss = GameObject.Find("CollisionAttackManagerBoss").GetComponent<AttackCollisionManager>();
         attackCollisionManagerBoss.Start0();
+        tutorialManager = FindAnyObjectByType<TutorialManager>();
+        tutorialManager?.Start0();
         //ステータスのセット
         StatusSet(character, true, playerManager);
         StatusSet(characterSub, false, playerManagerSub);
@@ -588,10 +609,9 @@ public class GameManager : MonoBehaviour
         popTextManager.Start0();
         cutIn = FindAnyObjectByType<CutIn>();
         cutIn.Start0();
+        tutorialManager?.SetActive(0, true);
+        DisplayStatus(null);
         //StartCoroutine(SetCutInMorning());
-    }
-    public void Mouse()
-    {
     }
     //エフェクト情報
     [System.Serializable]
@@ -696,9 +716,7 @@ public class GameManager : MonoBehaviour
         public string name;
         public Label nameLabel { get; set; }
         int lv0;
-
         [System.NonSerialized] Level parentLevel;
-
         [System.NonSerialized] Skill parentSkill;
         public int lv {
             get
@@ -709,9 +727,14 @@ public class GameManager : MonoBehaviour
             {
                 if (parentSkill == null) parentLevel.lv += value - lv0;
                 lv0 = value;
-                nameLabel.text = $"{name}\n{(lv0 < this.value.Length ? this.value[lv0] : "")}{unit}";
+                if(lv0 + 1 >= this.value.Length) nameLabel.text = $"{name}\n{(lv0 < this.value.Length ? this.value[lv0] : "")}{unit}";
+                else nameLabel.text = $"{name}\n{this.value[lv0]}{unit}→<color=#00dddd>{this.value[lv0 + 1]}{unit}</color>";
                 pointLabel.text = lv0 < point.Length ? $"{point[lv0].ToString("#,#")}P" : "Max";
-                if (parentSkill != null && lv0 >= point.Length) parentSkill.ChangeSkillName(unit);
+                if (parentSkill != null && lv0 >= point.Length)
+                {
+                    tutorialManager.SetActive(6, true);
+                    parentSkill.ChangeSkillName(unit);
+                }
             }
         }
         public int[] value;

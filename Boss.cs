@@ -17,7 +17,7 @@ public class Boss : Enemy
     [SerializeField] AttackCollisionValue AttackCollisionValueSpecial4;//特殊当たり判定
     Vector2 vector2;//一時利用
     IEnumerator enumerator;//無敵時間処理
-    readonly float invincibleTime = 1.5f; //起き上がり無敵時間
+    readonly float armorTime = 1.5f; //起き上がりアーマー時間
     public bool Skill(int i)
     {
         if (skill) return false;//別行動中
@@ -34,6 +34,11 @@ public class Boss : Enemy
             afterimage.SetSkill(skillHash, skillIdHash, i, distanceHash, distance);
         }
         return true;
+    }
+    //クリア
+    protected override void Death()
+    {
+        GameManager.gameManager.Clear();
     }
     //ダメージによるアニメーションのブレンド用
     protected override void SetDamage()
@@ -66,13 +71,13 @@ public class Boss : Enemy
     protected override void ReMove()
     {
         base.ReMove();
-        condition = Afterimage.Condition.InvinciblePlus;
+        condition = Afterimage.Condition.ArmorPlus;
         if (enumerator != null) StopCoroutine(enumerator);
-        enumerator = Invincible(invincibleTime);
+        enumerator = Armor(armorTime);
         StartCoroutine(enumerator);
         foreach (var afterimage in afterimages)
         {
-            afterimage.SetCondition(condition, invincibleTime);
+            afterimage.SetCondition(condition, armorTime);
         }
     }
     //攻撃処理
@@ -111,6 +116,9 @@ public class Boss : Enemy
         //残像のセット
         afterimages = new Afterimage[AfterimageObjects.Length];
         StartCoroutine(AfterimageInit());
+        transform.position += Vector3.right * 20f;
+        animator.SetTrigger("first");
+        GameManager.cameraManager.Zoom(transform);
     }
     IEnumerator AfterimageInit()
     {
@@ -132,6 +140,14 @@ public class Boss : Enemy
         invincible = false;
         enumerator = null;
     }
+    //ハイパーアーマー
+    IEnumerator Armor(float time)
+    {
+        armorbool = true;
+        yield return new WaitForSeconds(time);
+        armorbool = false;
+        enumerator = null;
+    }
     //アニメーション開始時
     public void AnimationStart(int hash, int skillId, float cooltime, Afterimage.Condition condition, float invincibleTime, Animator animator)
     {
@@ -147,6 +163,12 @@ public class Boss : Enemy
             {
                 if(enumerator != null) StopCoroutine(enumerator);
                 enumerator = Invincible(invincibleTime);
+                StartCoroutine(enumerator);
+            }
+            else if (condition == Afterimage.Condition.ArmorPlus)
+            {
+                if (enumerator != null) StopCoroutine(enumerator);
+                enumerator = Armor(invincibleTime);
                 StartCoroutine(enumerator);
             }
             this.condition = condition;
@@ -182,14 +204,6 @@ public class Boss : Enemy
             yield return new WaitForSeconds(0.2f);
         }
     }
-    //未使用
-    void SkillParticle(int i)
-    {
-        foreach(var particleSystem in skillParticles[i].particleSystems)
-        {
-            particleSystem.Play();
-        }
-    }
     //スキルエフェクトのセット
     public virtual void ParticlePlaySkill(int num)
     {
@@ -219,7 +233,11 @@ public class Boss : Enemy
     protected override void OnDestroy()
     {
         base.OnDestroy();
-        GameManager.boss = null;
+        GameManager.boss = null; 
+        foreach(var afterimage in afterimages)
+        {
+            Destroy(afterimage.gameObject);
+        }
     }
     [System.Serializable]
     class SkillSet 

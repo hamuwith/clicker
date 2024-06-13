@@ -14,10 +14,12 @@ public class Afterimage : MonoBehaviour
     PlayerManager playerManager;//対象
     Boss boss;//対象
     bool invincible;//無敵
+    bool armor;//ハイパーアーマー
     public enum Condition
     {
         Null,
         Armor,
+        ArmorPlus,
         Invincible,
         InvinciblePlus
     }
@@ -72,6 +74,16 @@ public class Afterimage : MonoBehaviour
         invincible = false;
         SetCondition(condition, 0f);
     }
+    IEnumerator Armor(float time)
+    {
+        condition = Condition.Null;
+        armor = true;
+        material.color = colorArmor;
+        SetScaleYoyo();
+        yield return new WaitForSeconds(time);
+        armor = false;
+        SetCondition(condition, 0f);
+    }
     IEnumerator SetStart(int hash)
     {
         if (playerManager != null)
@@ -88,13 +100,15 @@ public class Afterimage : MonoBehaviour
         animator.SetTrigger(hash);
     }
     //残像のセット
-    public void SetCondition(Condition condition, float invincibleTime)
+    public void SetCondition(Condition condition, float time)
     {
         this.condition = condition;
         if (invincible) return;
+        if (armor) return;
         if (condition == Condition.Armor) material.color = colorArmor;
         else if (condition == Condition.Invincible) material.color = colorInvincible;
-        else if (condition == Condition.InvinciblePlus) StartCoroutine(Invincible(invincibleTime));
+        else if (condition == Condition.InvinciblePlus) StartCoroutine(Invincible(time));
+        else if (condition == Condition.ArmorPlus) StartCoroutine(Armor(time));
         else material.color = Color.clear;
     }
     //残像時ダメージ判定受けた際、スケールを変化させる
@@ -113,23 +127,17 @@ public class Afterimage : MonoBehaviour
         tweener = transform.DOScale(transform.localScale * 1.3f, 0.05f)
             .SetLoops(2, LoopType.Yoyo);
     }
-    //未使用
     void SlashParticlePlay(int num)
     {
     }
     void SlashSkillParticlePlay(int num)
-    {        
-    }
-    void SkillParticlePlay(int num)
-    {        
-    }
-    void SkillCollisionPlay(int num)
     {
     }
-    void IdleStart()
-    {        
-    }
     void GuardParticlePlay()
-    {        
+    {
+    }
+    void OnDestroy()
+    {
+        tweener.Kill();
     }
 }

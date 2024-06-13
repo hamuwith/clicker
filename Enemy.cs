@@ -20,7 +20,6 @@ public class Enemy : MonoBehaviour
     [SerializeField] CapsuleCollider2D capsuleCollider;//死亡時当たり判定無くす
     [SerializeField] public Animator animator;
     [SerializeField] float attackArea;//攻撃範囲
-    [SerializeField] float damage;//攻撃力
     [SerializeField] protected float attackSpeed;//攻撃速度
     [SerializeField] float velocity;//移動速度
     readonly protected int idleHash = Animator.StringToHash("idle");
@@ -41,7 +40,7 @@ public class Enemy : MonoBehaviour
     [SerializeField] Armor armor;//ハイパーアーマーの設定
     [SerializeField] Kind kind;//敵の種類
     Material material;//スプライトのマテリアル、ハイパーアーマー時赤くする
-    bool armorbool;//ハイパーアーマー状態か
+    protected bool armorbool;//ハイパーアーマー状態か
     [SerializeField] ParticleDelay particleSystemAttack;
     enum Armor
     {
@@ -249,7 +248,7 @@ public class Enemy : MonoBehaviour
                 .OnComplete(() => 
                 {
                     tweenerX = null;
-                    Spawn();
+                    Death();
                 })
                 .OnStart(() =>
                 {
@@ -281,8 +280,8 @@ public class Enemy : MonoBehaviour
     }
     protected virtual void DeathHitStop()
     {
-        //if (!attackCollisionValue.autoAtk) GameManager.playerManager.HitStop(0.3f);
-        //else GameManager.playerManager.HitStop(0.08f);
+        if (!attackCollisionValue.autoAtk) GameManager.playerManager.HitStop(0.25f);
+        else GameManager.playerManager.HitStop(0.08f);
     }
     //飛ばられた後の処理
     void Down()
@@ -293,6 +292,10 @@ public class Enemy : MonoBehaviour
                 .OnComplete(() =>
                 {
                     ReMove();
+                })
+                .OnStart(() =>
+                {
+                    if (!attackCollisionValue.autoAtk) GameManager.playerManager.HitStop(0.1f);
                 })
                 .SetEase(Ease.InQuad);
         }
@@ -323,17 +326,8 @@ public class Enemy : MonoBehaviour
                 tweenerX = null;
             });
     }
-    //未使用
-    void StandUp()
-    {
-        animator.SetTrigger(standupHash);
-        foreach (var afterimage in afterimages)
-        {
-            afterimage.SetTrigger(standupHash);
-        }
-    }
     //リスポン
-    void Spawn()
+    protected virtual void Death()
     {
         if (GameManager.enemyManager.stopSpown)
         {
@@ -407,7 +401,7 @@ public class Enemy : MonoBehaviour
             //カメラの範囲外に行ったときリスポン
             if (((!GameManager.playerManager.left && transform.position.x <= _left) || (GameManager.playerManager.left && transform.position.x >= _right)) && moveHash == currectAnime)
             {
-                SetSpawn();
+                Death();
             }
             //攻撃時アーマーなら
             if(Armor.Attack == armor)

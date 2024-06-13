@@ -19,7 +19,7 @@ public class AnimetorMoveScript : StateMachineBehaviour
     [SerializeField] float clickDuration = -1f;//進化スキル用連打可能時間
     [SerializeField] float clickDelay;//進化スキル用連打可能時間ディレイ
     [SerializeField] ParticleSystemDelay[] particleSystemDelays;//アニメーションのエフェクト
-    Vector2 vector2;//一時
+    protected Vector2 vector2;//一時
     [SerializeField] SpeechBubble[] speechBubbles;//吹き出しの設定
     [SerializeField] SpeechBubbleEvo[] speechBubbleEvos;//進化スキル時の吹き出しの設定
     new public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)

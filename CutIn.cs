@@ -12,6 +12,7 @@ public class CutIn : MonoBehaviour
     float position;//キャラクター表示の表示ポジション
     Vector2 startScale;//オブジェクトの初期スケール
     Vector2 startPosition;//キャラクター表示の初期ポジション
+    float preTimeScale;//前のタイムスケール
     //初期化
     public void Start0()
     {
@@ -24,9 +25,11 @@ public class CutIn : MonoBehaviour
         Enabled(false);
     }
     //カットインのセット
-    public void SetCutIn(in string skillName, Color color, PlayerManager playerManager)
+    public IEnumerator SetCutIn(string skillName, Color color, PlayerManager playerManager)
     {
-        StartCoroutine(SetTimeScale(Time.timeScale));
+        if (Time.timeScale == 0f) yield return null;
+        preTimeScale = Time.timeScale;
+        Time.timeScale = 0f;
         textMesh.text = skillName;
         color.a = 1f;
         spriteRendererBackground.color = color;
@@ -39,7 +42,7 @@ public class CutIn : MonoBehaviour
             .SetEase(Ease.Linear)
             .OnComplete(() =>
             {
-                spriteRendererCharacter.transform.DOLocalMoveX(position, 0.25f)
+                spriteRendererCharacter.transform.DOLocalMoveX(position, 0.5f)
                     .SetEase(Ease.Linear)
                     .SetUpdate(true)
                     .OnComplete(() =>
@@ -47,10 +50,11 @@ public class CutIn : MonoBehaviour
                         transform.DOScaleY(0f, 0.1f)
                             .SetEase(Ease.Linear)
                             .SetUpdate(true)
-                            .SetDelay(0.15f)
+                            .SetDelay(0.3f)
                             .OnComplete(() =>
                             {
-                                Enabled(false);
+                                Enabled(false); 
+                                Time.timeScale = preTimeScale;
                             });
                     });
             });
@@ -61,12 +65,5 @@ public class CutIn : MonoBehaviour
         spriteRendererBackground.enabled = b;
         textMesh.enabled = b;
         spriteRendererCharacter.enabled = b;
-    }
-    //表示時タイムスケール0
-    IEnumerator SetTimeScale(float preTimeScale)
-    {
-        Time.timeScale = 0f;
-        yield return new WaitForSecondsRealtime(0.6f);
-        Time.timeScale = preTimeScale;
     }
 }

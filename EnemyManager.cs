@@ -42,20 +42,34 @@ public class EnemyManager : MonoBehaviour
             enemy.Update0();
         }
     }
-    //プレイヤーが倒されたときの敵の削除
-    public bool DestroyEnemy()
+    //敵の削除
+    public bool DestroyEnemy(bool all)
+    {
+        if (all)
+        {
+            Destroy(enemies[enemies.Count - 1].gameObject);
+            enemies.RemoveAt(enemies.Count - 1);
+            return enemies.Count > 0;
+        }
+        else
+        {
+            Destroy(enemies[enemies.Count - 2].gameObject);
+            enemies.RemoveAt(enemies.Count - 2);
+            return enemies.Count > 1;
+        }
+    }
+    //プレイヤーが倒されたとき、初めから
+    public void ClearStage()
     {
         if (enemies.Count <= 0)
         {
+            //ステージ初期化処理
             foreach (var enemySet in enemySets)
             {
                 enemySet.count = 0;
             }
-            return false;
+            stopSpown = false;
         }
-        Destroy(enemies[enemies.Count - 1].gameObject);
-        enemies.RemoveAt(enemies.Count - 1);
-        return true;
     }
     [System.Serializable]
     public class EnemySet

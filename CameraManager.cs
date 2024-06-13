@@ -3,28 +3,37 @@ using DG.Tweening;
 
 public class CameraManager : MonoBehaviour
 {
-    Vector3 vector3;
-    public static bool fix;
-    //Matrix4x4 mat;
-    readonly float offset = 8.35f;
-    readonly float y = 1.5f;
-    readonly float smooth = 15f;
-    readonly float smoothTrans = 14.99f;
-    readonly float zoomTime = 0.6f;
+    Vector3 vector3;//一時利用
+    public static bool fix;//カメラ固定中
+    bool zoomTarget;//ズーム中
+    readonly float offset = 8.35f;//プレイヤー表示位置オフセット
+    readonly float smooth = 15f;//切替位置
+    readonly float smoothTrans = 14.99f;//切替ポイント
+    readonly float zoomTime = 1f;//ズーム維持時間
     public void Start0() 
     {
         vector3 = transform.position;
     }
-    //未使用
-    public void Zoom()
+    //ボスにズーム
+    public void Zoom(Transform _transform)
     {
-        Camera.main.DOOrthoSize(8f, zoomTime)
-            .SetLoops(2, LoopType.Yoyo)
-            .SetEase(Ease.OutExpo);
+        zoomTarget = true;
+        DOTween.Sequence()
+                .Append(transform.DOMoveX(_transform.position.x, 0.5f)
+                    .OnComplete(() =>
+                    {
+                        StartCoroutine(GameManager.gameManager.EnemyDestroy(false));
+                    }))
+                .AppendInterval(zoomTime)
+                .Append(transform.DOMoveX(GameManager.playerManager.transform.position.x + offset, 0.5f)
+                    .OnComplete(() =>
+                    {
+                        zoomTarget = false;
+                    }));
     }
     public void Update0()
     {
-        if (fix) return;
+        if (fix || zoomTarget) return;
         if (GameManager.playerManager.left)
         {
             if (GameManager.playerManager.transform.position.x - transform.position.x > smooth)
@@ -49,7 +58,7 @@ public class CameraManager : MonoBehaviour
                 vector3.x = (GameManager.playerManager.transform.position.x + offset + transform.position.x * 49f) / 50;
             }
         }
-        vector3.y = (y + transform.position.y * 49f) / 50;
+        vector3.y = transform.position.y;
         transform.position = vector3;
     }
 }

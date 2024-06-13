@@ -11,7 +11,6 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] ParticleSystem slashSkillParticle;//通常攻撃スキルエフェクト
     [SerializeField] ParticleSystem slashSkillParticle3;//通常攻撃スキルエフェクト3
     [SerializeField] protected ParticleSystem slashSkillParticleBuff;//通常攻撃スキル発動中エフェクト
-    [SerializeField] protected Particle[] skillParticles;//未使用
     [SerializeField] protected ParticleSystemSkill[] particleSystemSkills;//スキルエフェクト
     [SerializeField] ParticleSystem guardParticle;//ガードエフェクト
     protected Vector2 vector2;//一時利用
@@ -94,12 +93,9 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] ParticleSystemRenderer particleSystemRenderer;//進化スキルクリック時各スキルエフェクトのレンダラー
     [SerializeField] Material[] addMaterials;//進化スキルクリック時各スキルエフェクトマテリアル
     Vector3 vector3ScaleSkillParticle;//進化スケールスキルクリック時スケール
-    public Color[] skillColor;//スキルのモチーフカラー
     [SerializeField] protected ParticleSystem skillEffect;//進化スキルクリック時各スキルエフェクト
     [SerializeField] ParticleSystem skillEffect1;//進化スキルクリック時マウスエフェクト
     public Gradient[] skillGradient;//スキルのモチーフカラー
-    public Transform transformSkillParticle { get; set; }//未使用
-    public int skillIdSkillParticle { get; set; }//未使用
     [SerializeField] Transform transformOnigiriEffect;//進化スキルの追加エフェクト
     [SerializeField] AttackCollisionValue attackCollisionValueOnigiriEvo;//進化スキルの追加ダメージ
     [SerializeField] Transform transformIaiEffect;//進化スキルの追加エフェクト
@@ -119,6 +115,7 @@ public class PlayerManager : MonoBehaviour
     public float prePositionX;//進んだ距離カウント用
     [SerializeField] CapsuleCollider2D capsuleCollider2;//自身のコライダー
     PopText popText0;//現在の吹き出し
+    [SerializeField] int tutorialId;
     public PopText popTextEvo { 
         get 
         {
@@ -404,7 +401,9 @@ public class PlayerManager : MonoBehaviour
         if (coolCounts[i] > 0f) return false;
         if (Time.timeScale <= 0f) return false;
         skill = true;
-        EvoSkill(ref i);        
+        EvoSkill(ref i);
+        GameManager.tutorialManager?.SetActive(1, false);
+        GameManager.tutorialManager?.SetActive(3, true);
         animator.SetTrigger(skillHash);
         animator.SetInteger(skillIdHash, i);
         foreach (var afterimage in afterimages)
@@ -419,6 +418,7 @@ public class PlayerManager : MonoBehaviour
     {
         if (skill) return false;
         skill = true;
+        GameManager.tutorialManager?.SetActive(3, false);
         animator.SetTrigger(skillHash);
         animator.SetInteger(skillIdHash, -2);
         foreach (var afterimage in afterimages)
@@ -454,6 +454,7 @@ public class PlayerManager : MonoBehaviour
         }
         else
         {
+            GameManager.tutorialManager?.SetActive(tutorialId, false);
             animator.SetTrigger(attackHash);
             foreach (var afterimage in afterimages)
             {
@@ -545,7 +546,6 @@ public class PlayerManager : MonoBehaviour
             }
             canAttack = hash == downEndHash || hash == knockHash;
             materialClick = GetCanAttack();
-            GameManager.gameManager.Mouse();
         }
     }
     //進化スキルクリック受付時間処理
@@ -554,14 +554,12 @@ public class PlayerManager : MonoBehaviour
         if(delay > 0f) yield return new WaitForSeconds(delay);
         canSkillClick = true;
         materialSkill = true;
-        GameManager.gameManager.Mouse();
         //mouse.SetInt(GameManager.gameManager.clickHash, 1);
         //mouse.SetInt(GameManager.gameManager.skillHash, 1);
         yield return new WaitForSeconds(time);
         canSkillClick = false;
         materialSkill = false;
         popTextEvo = null;
-        GameManager.gameManager.Mouse();
         //if (skillId == 1) SetScale();
         //mouse.SetInt(GameManager.gameManager.clickHash, 0);
         //mouse.SetInt(GameManager.gameManager.skillHash, 0);
@@ -578,7 +576,7 @@ public class PlayerManager : MonoBehaviour
         yield return new WaitForSeconds(time);
         invincible = false;
     }
-    //通常攻撃エフェクト位置
+    //通常攻撃エフェクト位置(アニメーションより使用)
     protected virtual void SlashParticlePlay(int num)
     {
         var set = SetParticle(num); 
@@ -609,20 +607,6 @@ public class PlayerManager : MonoBehaviour
     void GuardParticlePlay()
     {
         guardParticle.Play();
-    }
-    //未使用
-    protected virtual void SkillParticlePlay(int num)
-    {
-        foreach (var particleSystem in skillParticles[num].particleSystems)
-        {
-            if (particleSystem == scaleSkillParticle)
-            {
-                scaleSkillParticle.transform.localScale = Vector3.one;
-                scaleSkillParticle.transform.localPosition = vector3ScaleSkillParticle;
-            }
-            particleSystem.Play();
-        }
-        SpecialSkillParticlePlay(num);
     }
     //スキルエフェクト
     public virtual void ParticlePlaySkill(int num)

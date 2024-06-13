@@ -93,21 +93,6 @@ public class PlayerManagerSub : PlayerManager
         }
         base.ParticlePlaySkill(num);
     }
-    //未使用
-    protected override void SkillParticlePlay(int num)
-    {
-        foreach (var particleSystem in skillParticles[num].particleSystems)
-        {
-            if (particleSystem == scaleSkillParticle)
-            {
-                scaleSkillParticle.transform.localScale = Vector3.one;
-                var velocityOverLifetime = scaleSkillParticle.velocityOverLifetime;
-                velocityOverLifetime.speedModifierMultiplier = 1f;
-            }
-            particleSystem.Play();
-        }
-        SpecialSkillParticlePlay(num);
-    }
     //毒スキルエフェクト
     IEnumerator PoisonParticlePlay(ParticleDelay particleDelay)
     {
@@ -264,9 +249,6 @@ public class PlayerManagerSub : PlayerManager
             skill = false;
         }
         materialClick = GetCanAttack();
-        //mouse.SetInt(GameManager.gameManager.clickHash, GetCanAttack() ? 1 : 0);
-        GameManager.gameManager.Mouse();
-        //mouse.SetInt(GameManager.gameManager.skillHash, skill ? 0 : 1);
     }
     //プレイヤーと離れていたら瞬間移動
     public void Move()

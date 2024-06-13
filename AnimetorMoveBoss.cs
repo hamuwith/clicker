@@ -4,7 +4,6 @@ using DG.Tweening;
 public class AnimetorMoveBoss : AnimetorMoveScript
 {
     [SerializeField] float cooltime;//クールタイム
-    Vector2 vector2;
     [SerializeField] bool relative;//相対的か
     new public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
@@ -59,5 +58,11 @@ public class AnimetorMoveBoss : AnimetorMoveScript
             attackCollision.attackCollision?.End(attackCollision.dependence);
         }
         GameManager.boss.ParticlesStopSkill(skillId);
+    }
+    void OnDestroy()
+    {
+        //オブジェクト破壊時処理
+        tweenerMoveX?.Kill();
+        tweenerMoveY?.Kill();
     }
 }
