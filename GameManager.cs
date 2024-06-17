@@ -9,9 +9,6 @@ public class GameManager : MonoBehaviour
 {
     /*すること
     空中で起き上がるバグ
-    クリア時処理
-    ボス召喚時処理敵消す
-    ステータスアップポップアップテキスト
     */
     public static GameManager gameManager;//this
     public static PlayerManager playerManager;//プレイヤー
@@ -70,6 +67,7 @@ public class GameManager : MonoBehaviour
         } 
         set
         {
+            //徐々に変化
             gold0 = value;
             tweener?.Kill();
             tweener = DOTween.To(() => goldLabelValue, x => 
@@ -604,7 +602,7 @@ public class GameManager : MonoBehaviour
         StatusSet(characterSub, false, playerManagerSub);
         SetCast(characterSub.status[0]);
         SetHP(character.status[0]);
-        gold = 0;
+        gold = 1000000;
         popTextManager = FindAnyObjectByType<PopTextManager>();
         popTextManager.Start0();
         cutIn = FindAnyObjectByType<CutIn>();

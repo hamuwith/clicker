@@ -11,7 +11,7 @@ public class AnimetorMoveBoss : AnimetorMoveScript
         x = 0;
         y = 0;
         //スキル発動前にボスの向きをセット
-        GameManager.boss.SetRight();
+        GameManager.boss.SetRight(0f);
         //ボスのアニメーション開始時処理
         GameManager.boss.AnimationStart(stateInfo.shortNameHash, skillId, cooltime, condition, invincibleTime, animator);
         //ボス本体なら

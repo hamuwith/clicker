@@ -118,52 +118,15 @@ public class AnimetorMoveScript : StateMachineBehaviour
         if (animatorMovesX[x].move != 0f || animatorMovesX[x].relative)
         {
             float movex = (animatorMovesX[x].relative ? GameManager.playerManager.transform.position.x : transform.position.x) + animatorMovesX[x].move * (changeSide ? -1 : 1);
-            //繰り返しの場合
-            if (animatorMovesX[x].yoyo)
-            {
-                //ディレイなし
-                if (animatorMovesX[x].delay == 0f)
-                    tweenerMoveX = transform.DOMoveX(movex, animatorMovesX[x].duration)
-                        .OnComplete(() =>
-                        {
-                            x++;
-                            MoveX(transform, animator, changeSide);
-                        })
-                        .SetLoops(2,LoopType.Yoyo)
-                        .SetEase(animatorMovesX[x].ease);
-                //ディレイあり
-                else tweenerMoveX = transform.DOMoveX(movex, animatorMovesX[x].duration)
-                        .SetDelay(animatorMovesX[x].delay)
-                        .OnComplete(() =>
-                        {
-                            x++;
-                            MoveX(transform, animator, changeSide);
-                        })
-                        .SetLoops(2, LoopType.Yoyo)
-                        .SetEase(animatorMovesX[x].ease);
-            }
-            else
-            {
-                //繰り返しでない場合
-                //ディレイなし
-                if (animatorMovesX[x].delay == 0f)
-                    tweenerMoveX = transform.DOMoveX(movex, animatorMovesX[x].duration)
-                        .OnComplete(() =>
-                        {
-                            x++;
-                            MoveX(transform, animator, changeSide);
-                        })
-                        .SetEase(animatorMovesX[x].ease);
-                //ディレイあり
-                else tweenerMoveX = transform.DOMoveX(movex, animatorMovesX[x].duration)
-                        .SetDelay(animatorMovesX[x].delay)
-                        .OnComplete(() =>
-                        {
-                            x++;
-                            MoveX(transform, animator, changeSide);
-                        })
-                        .SetEase(animatorMovesX[x].ease);
-            }            
+            tweenerMoveX = transform.DOMoveX(movex, animatorMovesX[x].duration)
+                .SetDelay(animatorMovesX[x].delay)
+                .OnComplete(() =>
+                {
+                    x++;
+                    MoveX(transform, animator, changeSide);
+                })
+                .SetLoops(animatorMovesX[x].yoyo ? 2: 1, LoopType.Yoyo)
+                .SetEase(animatorMovesX[x].ease);            
         }
     }
     protected void MoveY(Transform transform)
@@ -173,46 +136,15 @@ public class AnimetorMoveScript : StateMachineBehaviour
         {
             //Y移動、X移動と同じ
             float movey = (animatorMovesY[y].relative ? GameManager.playerManager.transform.position.y : transform.position.y) + animatorMovesY[y].move;
-            if (animatorMovesY[y].yoyo)
-            {
-                if (animatorMovesY[y].delay == 0f)
-                    tweenerMoveY = transform.DOMoveY(movey, animatorMovesY[y].duration)
-                        .OnComplete(() =>
-                        {
-                            y++;
-                            MoveY(transform);
-                        })
-                        .SetLoops(2, LoopType.Yoyo)
-                        .SetEase(animatorMovesY[y].ease);
-                else tweenerMoveY = transform.DOMoveY(movey, animatorMovesY[y].duration)
-                        .SetDelay(animatorMovesY[y].delay)
-                        .OnComplete(() =>
-                        {
-                            y++;
-                            MoveY(transform);
-                        })
-                        .SetLoops(2, LoopType.Yoyo)
-                        .SetEase(animatorMovesY[y].ease);
-            }
-            else
-            {
-                if (animatorMovesY[y].delay == 0f)
-                    tweenerMoveY = transform.DOMoveY(movey, animatorMovesY[y].duration)
-                        .OnComplete(() =>
-                        {
-                            y++;
-                            MoveY(transform);
-                        })
-                        .SetEase(animatorMovesY[y].ease);
-                else tweenerMoveY = transform.DOMoveY(movey, animatorMovesY[y].duration)
-                        .SetDelay(animatorMovesY[y].delay)
-                        .OnComplete(() =>
-                        {
-                            y++;
-                            MoveY(transform);
-                        })
-                        .SetEase(animatorMovesY[y].ease);
-            }
+            tweenerMoveY = transform.DOMoveY(movey, animatorMovesY[y].duration)
+                .SetDelay(animatorMovesY[y].delay)
+                .OnComplete(() =>
+                {
+                    y++;
+                    MoveY(transform);
+                })
+                .SetLoops(animatorMovesY[y].yoyo ? 2 : 1, LoopType.Yoyo)
+                .SetEase(animatorMovesY[y].ease);
         }
     }
 }

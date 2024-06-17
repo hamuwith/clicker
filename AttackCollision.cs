@@ -56,6 +56,7 @@ public class AttackCollision : MonoBehaviour
             vector2side.y = position.y + attackCollisionValue.position.y + attackCollisionValue.velocity.y * x + vector2.y * x / 2;
             transform.position = vector2side;
             capsuleCollider2.size = attackCollisionValue.size + attackCollisionValue.expantion * x;
+            capsuleCollider2.offset = attackCollisionValue.offset;
             transform.localEulerAngles = Vector3.forward * (attackCollisionValue.rotation + attackCollisionValue.rotationVelocity * x) * side;
         }, 1f, attackCollisionValue.duration)
             .OnStart(() =>
@@ -216,6 +217,7 @@ public class AttackCollisionValue
     public bool left { get; set; }//当たり判定の向き
     public AttackCollision attackCollision { get; set; }//当たり判定停止用
     public bool dependence;//プレイヤーと独立しているか
+    public Vector2 offset;//オフセット
     public enum Effect    
     { 
         Null,

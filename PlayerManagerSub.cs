@@ -110,7 +110,6 @@ public class PlayerManagerSub : PlayerManager
     {
         if(num == 0)
         {
-            Debug.Log("ice");
             StartCoroutine(IcePlay());
         }
     }
@@ -181,11 +180,9 @@ public class PlayerManagerSub : PlayerManager
     //アイススキル
     public IEnumerator IcePlay()
     {
-        Debug.Log("play");
         ice.Play(); 
         yield return new WaitWhile(() => particleSystemSkills[0].particleDelays[0].particleSystem.IsAlive());
         ice.Stop();
-        Debug.Log("stop");
     }
     //アイス攻撃対象セット
     public void Ice(Enemy enemy, AttackCollisionValue attackCollisionValue)

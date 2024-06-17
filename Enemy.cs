@@ -39,16 +39,19 @@ public class Enemy : MonoBehaviour
     [SerializeField] ParticleSystem kandenDamage;//感電追加攻撃のエフェクト
     [SerializeField] Armor armor;//ハイパーアーマーの設定
     [SerializeField] Kind kind;//敵の種類
+    public float groupSize = -1f;//集団のサイズ
     Material material;//スプライトのマテリアル、ハイパーアーマー時赤くする
     protected bool armorbool;//ハイパーアーマー状態か
-    [SerializeField] ParticleDelay particleSystemAttack;
+    [SerializeField] ParticleDelay particleSystemAttack;//攻撃のエフェクト
+    [SerializeField] bool throwPlayer;
+    Vector3 velocityVector;
     enum Armor
     {
         Null,
         Attack,
         All
     }
-    enum Kind
+    public enum Kind
     {
         Normal,
         Fly
@@ -73,7 +76,7 @@ public class Enemy : MonoBehaviour
                     animator.SetTrigger(knockHash);
                     foreach (var afterimage in afterimages)
                     {
-                        afterimage.SetTrigger(knockHash);
+                        afterimage?.SetTrigger(knockHash);
                     }
                 }
             }
@@ -83,25 +86,17 @@ public class Enemy : MonoBehaviour
     [SerializeField] Transform transformDamage; //ダメージ表示位置
     [SerializeField] Rigidbody2D _rigidbody2D; //自身のリジットボディ
     bool death;//倒されたか
-    float hurimukiCount;//振りむき可能時間カウント
     public bool right { get; protected set; }//どっち向きか
     public Afterimage[] afterimages;//残像のセット
     protected Afterimage.Condition condition;//状態
     protected bool invincible;//無敵か
     Vector2 deathPoint;//吹っ飛びエフェクト用
-    Transform spawnPoint;//スポーン位置
+    Transform spawnPoint;//スポン位置
+    Transform deathPosition;//デス位置
     private void OnTriggerEnter2D(Collider2D collision)
     {
         //プレイヤーの武器のみトリガー
         if (!collision.CompareTag("PlayerWeapon")) return;
-        //残像表示時、視覚でわかるように残像の拡大
-        if (condition != Afterimage.Condition.Null || invincible)
-        {
-            foreach (var afterimage in afterimages)
-            {
-                afterimage.SetScale();
-            }
-        }
         //コリジョンの情報を取得/ダメージ等
         AttackCollision attackCollision = collision.gameObject.GetComponent<AttackCollision>();
         (AttackCollisionValue attackCollisionValue0, SingleHit singleHit) = attackCollision.GetAttackCollisionValue();
@@ -180,7 +175,7 @@ public class Enemy : MonoBehaviour
         {
             foreach (var afterimage in afterimages)
             {
-                afterimage.SetScale();
+                afterimage?.SetScale();
             }
         }
         //無敵ならここまで
@@ -197,7 +192,15 @@ public class Enemy : MonoBehaviour
         //GameManager.damageManagers[attackCollisionValue.sub ? 1 : 0].SetDamage((int)damage, transformDamage, true);
         if (hp > 0f) GameManager.expManagers[attackCollisionValue.sub ? 1 : 0].SetExp((int)damage, transformDamage, !playerManager.left);
         //ハイパーアーマーならここまで
-        if (condition == Afterimage.Condition.Armor || armorbool) return;
+        if (condition == Afterimage.Condition.Armor || armorbool)
+        {
+            if (hp <= 0f)
+            {
+                //吹っ飛び
+                Kill(damage, playerManager);
+            }
+            return;
+        }
         //ダウン値のセット
         down += attackCollisionValue.down * downRate;
         //空中でヒットしたなら即ダウン
@@ -206,28 +209,8 @@ public class Enemy : MonoBehaviour
         {
             if (down >= 1f)
             {
-                //ダウン処理
-                var duration = attackCollisionValue.force.y * forceRate / 12 / down;
-                ResetForce(true);
-                vector3.x = transform.position.x + attackCollisionValue.force.x * forceRate * (attackCollisionValue.suction ? rightRate : 1) * (!playerManager.left ? 1 : -1);
-                right = !playerManager.left;
-                vector3.y = transform.position.y + attackCollisionValue.force.y * forceRate;
-                tweenerX = transform.DOMoveX(vector3.x, duration)
-                    .SetEase(kind == Kind.Normal ? Ease.OutSine : Ease.Linear)
-                    .OnComplete(() =>
-                    {
-                        tweenerX = null;
-                    });
-                tweenerY = transform.DOMoveY(vector3.y, duration / 2)
-                    .OnComplete(() =>
-                    {
-                        Down();
-                    });
-                animator.SetTrigger(downHash); 
-                foreach (var afterimage in afterimages)
-                {
-                    afterimage.SetTrigger(downHash);
-                }
+                //ノックダウン
+                KnockDown(rightRate, playerManager);
             }
             else
             {
@@ -238,40 +221,70 @@ public class Enemy : MonoBehaviour
         else
         {
             //吹っ飛び
-            vector3.x = attackCollisionValue.force.normalized.x * 35f * (right ? 1 : -1);
-            vector3.y = attackCollisionValue.force.normalized.y * 35f;
-            vector3 += transform.position;
-            var duration = 0.3f;
-            ResetForce(true);
-            tweenerX = transform.DOMove(vector3, duration)
-                .SetEase(Ease.Linear)
-                .OnComplete(() => 
-                {
-                    tweenerX = null;
-                    Death();
-                })
-                .OnStart(() =>
-                {
-                    DeathHitStop();
-                })
-                .OnUpdate(() => 
-                {
-                    if (!death && !GameManager.gameManager.CheckInScreen(transform))
-                    {
-                        death = true;
-                        deathPoint = attackCollisionValue.force.normalized;
-                        if (!right) deathPoint.x *= -1;
-                        GameManager.gameManager.KillEffect(this, deathPoint);
-                    }
-                });
-            capsuleCollider.enabled = false;
-            animator.SetTrigger(downHash);
-            foreach (var afterimage in afterimages)
+            Kill(damage, playerManager);
+        }
+    }
+    void Kill(float damage, PlayerManager playerManager)
+    {
+        //吹っ飛び
+        vector3.x = attackCollisionValue.force.normalized.x * 35f * (right ? 1 : -1);
+        vector3.y = attackCollisionValue.force.normalized.y * 35f;
+        vector3 += transform.position;
+        var duration = 0.3f;
+        ResetForce(true);
+        tweenerX = transform.DOMove(vector3, duration)
+            .SetEase(Ease.Linear)
+            .OnComplete(() =>
             {
-                afterimage.SetTrigger(downHash);
-            }
-            //経験値のセット
-            GameManager.expManagers[attackCollisionValue.sub ? 1 : 0].SetExp((int)(damage + exp), transformDamage, !playerManager.left);
+                tweenerX = null;
+                Death();
+            })
+            .OnStart(() =>
+            {
+                DeathHitStop();
+            })
+            .OnUpdate(() =>
+            {
+                if (!death && !GameManager.gameManager.CheckInScreen(transform))
+                {
+                    death = true;
+                    deathPoint = attackCollisionValue.force.normalized;
+                    if (!right) deathPoint.x *= -1;
+                    GameManager.gameManager.KillEffect(this, deathPoint);
+                }
+            });
+        capsuleCollider.enabled = false;
+        animator.SetTrigger(downHash);
+        foreach (var afterimage in afterimages)
+        {
+            afterimage?.SetTrigger(downHash);
+        }
+        //経験値のセット
+        GameManager.expManagers[attackCollisionValue.sub ? 1 : 0].SetExp((int)(damage + exp), transformDamage, !playerManager.left);
+    }
+    void KnockDown(float rightRate, PlayerManager playerManager)
+    {
+        //ダウン処理
+        var duration = attackCollisionValue.force.y * forceRate / 12 / down;
+        ResetForce(true);
+        vector3.x = transform.position.x + attackCollisionValue.force.x * forceRate * (attackCollisionValue.suction ? rightRate : 1) * (!playerManager.left ? 1 : -1);
+        right = !playerManager.left;
+        vector3.y = transform.position.y + attackCollisionValue.force.y * forceRate;
+        tweenerX = transform.DOMoveX(vector3.x, duration)
+            .SetEase(kind == Kind.Normal ? Ease.OutSine : Ease.Linear)
+            .OnComplete(() =>
+            {
+                tweenerX = null;
+            });
+        tweenerY = transform.DOMoveY(vector3.y, duration / 2)
+            .OnComplete(() =>
+            {
+                Down();
+            });
+        animator.SetTrigger(downHash);
+        foreach (var afterimage in afterimages)
+        {
+            afterimage?.SetTrigger(downHash);
         }
     }
     public float GetHpRate()
@@ -280,8 +293,8 @@ public class Enemy : MonoBehaviour
     }
     protected virtual void DeathHitStop()
     {
-        if (!attackCollisionValue.autoAtk) GameManager.playerManager.HitStop(0.25f);
-        else GameManager.playerManager.HitStop(0.08f);
+        if (!attackCollisionValue.autoAtk) GameManager.playerManager.HitStop(0.25f, 0.15f);
+        else GameManager.playerManager.HitStop(0.08f, 0.15f);
     }
     //飛ばられた後の処理
     void Down()
@@ -295,7 +308,7 @@ public class Enemy : MonoBehaviour
                 })
                 .OnStart(() =>
                 {
-                    if (!attackCollisionValue.autoAtk) GameManager.playerManager.HitStop(0.1f);
+                    if (!attackCollisionValue.autoAtk) GameManager.playerManager.HitStop(0.1f, 0.15f);
                 })
                 .SetEase(Ease.InQuad);
         }
@@ -321,7 +334,7 @@ public class Enemy : MonoBehaviour
                 animator.SetTrigger(knockEndHash);
                 foreach (var afterimage in afterimages)
                 {
-                    afterimage.SetTrigger(knockEndHash);
+                    afterimage?.SetTrigger(knockEndHash);
                 }
                 tweenerX = null;
             });
@@ -337,10 +350,17 @@ public class Enemy : MonoBehaviour
         animator.SetTrigger(respawnHash);
         foreach (var afterimage in afterimages)
         {
-            afterimage.SetTrigger(respawnHash);
+            afterimage?.SetTrigger(respawnHash);
         }
-        SetSpawn();
+        Spawn();
         capsuleCollider.enabled = true;
+    }
+    //スポン処理
+    void Spawn()
+    {
+        transform.position = deathPosition.position;
+        if (groupSize > 0f) GameManager.enemyManager.SetGroupSpawn((f, x) => SetSpawn(f, x));
+        else SetSpawn(GameManager.enemyManager.GetRandom());
     }
     //雷処理
     void Special(AttackCollisionValue attackCollisionValue)
@@ -355,11 +375,13 @@ public class Enemy : MonoBehaviour
         }
     }
     //初期化
-    public virtual void Start0(Transform _transform)
+    public virtual void Start0(Transform spawnTransform, Transform deathPosition)
     {
+        death = true;
         scale = transform.localScale.x;
         effectCounts = new float[(int)AttackCollisionValue.Effect.Length - 1];
-        spawnPoint = _transform;
+        spawnPoint = spawnTransform;
+        this.deathPosition = deathPosition;
         SpriteRenderer[] spriteRenderers = GetComponentsInChildren<SpriteRenderer>();
         material = spriteRenderers[0].material;
         foreach(var spriteRenderer in spriteRenderers)
@@ -371,36 +393,52 @@ public class Enemy : MonoBehaviour
             armorbool = true;
             material.SetColor(GameManager.gameManager.colorHash, Color.red);
         }
-        SetSpawn();
+        Spawn();
     }
     //スポン時の値の設定
-    void SetSpawn()
+    void SetSpawn(float _random, int num = default)
     {
+        Debug.Log(num);
         holdout = 0f;
         hp = maxhp;
         attackCount = 0f;
-        if(kind == Kind.Normal) transform.position = spawnPoint.transform.position + Random.Range(0f, 2f) * Vector3.right;
-        else transform.position = (Vector2)spawnPoint.transform.position + Random.Range(-4f, 0f) * inversionVector2 + Vector2.up * 12f;
+        if (kind == Kind.Normal)
+        {
+            transform.position = spawnPoint.transform.position + (_random + num * Random.Range(groupSize * 0.8f, groupSize * 1.2f)) * Vector3.right;
+        }
+        else
+        {
+            transform.position = (Vector2)spawnPoint.transform.position + _random * -2f * inversionVector2 + Vector2.up * 12f;
+            velocityVector = (GameManager.playerManager.GetPlayerCenter() - transform.position).normalized;
+            transform.position += num / 3 * Random.Range(groupSize * 0.7f, groupSize * 1.3f) * Vector3.right + Vector3.up * (num % 3 - 1) * Random.Range(groupSize * 0.7f, groupSize * 1.3f);
+        }
         death = false;
+        right = true;
     }
     //向きの設定
-    public void SetRight()
+    public void SetRight(float offset)
     {
-        if (right != GameManager.playerManager.transform.position.x <= transform.position.x)
+        if (offset <= transform.position.x - GameManager.playerManager.transform.position.x)
         {
-            right = !right;
-            hurimukiCount = 1f;
+            right = true;
+        }
+        else if (-offset > transform.position.x - GameManager.playerManager.transform.position.x)
+        {
+            right = false;
         }
     }
     public virtual void Update0()
     {
+        if (death) return;
         int currectAnime = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
         if (GameManager.boss != this)
         {
             (float _left, float _right) = GameManager.gameManager.LeftRight();
+            (float top, float down) = GameManager.gameManager.TopDown();
             //カメラの範囲外に行ったときリスポン
-            if (((!GameManager.playerManager.left && transform.position.x <= _left) || (GameManager.playerManager.left && transform.position.x >= _right)) && moveHash == currectAnime)
+            if ((((!GameManager.playerManager.left || right) && transform.position.x <= _left) || ((GameManager.playerManager.left || !right) && transform.position.x >= _right) || transform.position.y <= down || transform.position.y >= top) && moveHash == currectAnime)
             {
+                death = true;
                 Death();
             }
             //攻撃時アーマーなら
@@ -413,11 +451,12 @@ public class Enemy : MonoBehaviour
                 }
             } 
         }
-        //振りむきのセット
-        hurimukiCount -= Time.deltaTime;
-        if (hurimukiCount <= 0 && !skill)
+        if (!throwPlayer || currectAnime == standupHash || currectAnime == knockHash)
         {
-            SetRight();
+            //振りむきのセット
+            SetRight(1f);
+            //移動向き
+            velocityVector = (GameManager.playerManager.GetPlayerCenter() - transform.position).normalized;
         }
         //移動と攻撃
         if (kind == Kind.Normal)
@@ -433,7 +472,7 @@ public class Enemy : MonoBehaviour
             AttackFly(currectAnime);
             if (currectAnime == moveHash)
             {
-                transform.position += Time.deltaTime * velocity * (GameManager.playerManager.GetPlayerCenter() - transform.position).normalized;
+                transform.position += Time.deltaTime * velocity * velocityVector;
             }
         }
         //向き
@@ -465,7 +504,7 @@ public class Enemy : MonoBehaviour
         animator.SetTrigger(standupHash);
         foreach (var afterimage in afterimages)
         {
-            afterimage.SetTrigger(standupHash);
+            afterimage?.SetTrigger(standupHash);
         }
         down = 0f;
     }
@@ -474,7 +513,7 @@ public class Enemy : MonoBehaviour
     {
         if (currectAnime == idleHash || currectAnime == moveHash)
         {
-            if (Mathf.Abs(GameManager.playerManager.transform.position.x - transform.position.x) <= attackArea)
+            if (Mathf.Abs(GameManager.playerManager.transform.position.x - transform.position.x) <= attackArea && !throwPlayer)
             {
                 AttackIdle();
             }
@@ -492,7 +531,7 @@ public class Enemy : MonoBehaviour
             animator.SetBool(moveHash, false);
             foreach (var afterimage in afterimages)
             {
-                StartCoroutine(afterimage.SetBool(moveHash, false));
+                if (afterimage != null) StartCoroutine(afterimage.SetBool(moveHash, false));
             }
         }
         else
@@ -501,7 +540,7 @@ public class Enemy : MonoBehaviour
             attackCount = attackSpeed;
             foreach (var afterimage in afterimages)
             {
-                afterimage.SetTrigger(attackHash);
+                afterimage?.SetTrigger(attackHash);
             }
         }
     }
@@ -511,7 +550,7 @@ public class Enemy : MonoBehaviour
         animator.SetBool(moveHash, true);
         foreach (var afterimage in afterimages)
         {
-            StartCoroutine(afterimage.SetBool(moveHash, true));
+            if(afterimage != null) StartCoroutine(afterimage.SetBool(moveHash, true));
         }
     }
     //飛行モンスターの攻撃
@@ -519,7 +558,7 @@ public class Enemy : MonoBehaviour
     {
         if (currectAnime == idleHash || currectAnime == moveHash)
         {
-            if ((GameManager.playerManager.transform.position - transform.position).sqrMagnitude <= attackArea * attackArea)
+            if ((GameManager.playerManager.transform.position - transform.position).sqrMagnitude <= attackArea * attackArea && !throwPlayer)
             {
                 AttackIdle();
             }

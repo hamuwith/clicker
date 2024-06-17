@@ -21,7 +21,8 @@ public class Afterimage : MonoBehaviour
         Armor,
         ArmorPlus,
         Invincible,
-        InvinciblePlus
+        InvinciblePlus,
+        AvoidancePlus
     }
     //èâä˙âªÉ{ÉXóp
     public void Init(Boss boss)
@@ -108,6 +109,7 @@ public class Afterimage : MonoBehaviour
         if (condition == Condition.Armor) material.color = colorArmor;
         else if (condition == Condition.Invincible) material.color = colorInvincible;
         else if (condition == Condition.InvinciblePlus) StartCoroutine(Invincible(time));
+        else if (condition == Condition.AvoidancePlus) StartCoroutine(Invincible(time));
         else if (condition == Condition.ArmorPlus) StartCoroutine(Armor(time));
         else material.color = Color.clear;
     }

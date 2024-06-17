@@ -15,6 +15,8 @@ public class Boss : Enemy
     [SerializeField] Afterimage[] AfterimageObjects;//残像のゲームオブジェクト
     [SerializeField] ParticleSystem particleSystemSpecial4;//特殊エフェクト
     [SerializeField] AttackCollisionValue AttackCollisionValueSpecial4;//特殊当たり判定
+    [SerializeField] string name;
+    [SerializeField] Color motif;
     Vector2 vector2;//一時利用
     IEnumerator enumerator;//無敵時間処理
     readonly float armorTime = 1.5f; //起き上がりアーマー時間
@@ -52,7 +54,7 @@ public class Boss : Enemy
     //倒されたときヒットストップ
     protected override void DeathHitStop()
     {
-        GameManager.playerManager.HitStop(0.6f);
+        GameManager.playerManager.HitStop(0.6f, 0.15f);
     }
     public override void Update0()
     {
@@ -109,9 +111,9 @@ public class Boss : Enemy
         }
     }
     //初期化
-    public override void Start0(Transform _transform)
+    public override void Start0(Transform spawnTransform, Transform deathPosition)
     {
-        base.Start0(_transform);
+        base.Start0(spawnTransform, deathPosition);
         GameManager.boss = this;
         //残像のセット
         afterimages = new Afterimage[AfterimageObjects.Length];
@@ -124,13 +126,16 @@ public class Boss : Enemy
     {
         afterimages[0] = Instantiate(AfterimageObjects[0]);
         afterimages[0].Init(this);
-        //yield return new WaitForSeconds(0.1f);
+        yield return null;
         afterimages[1] = Instantiate(AfterimageObjects[1]);
         afterimages[1].Init(this);
-        //yield return new WaitForSeconds(0.1f);
+        yield return null;
         afterimages[2] = Instantiate(AfterimageObjects[2]);
         afterimages[2].Init(this);
         yield return null;
+        GameManager.cameraManager.CreateWarning();
+        yield return null;
+        GameManager.cameraManager.CreateBossName(transform, name, motif);
     }
     //無敵
     IEnumerator Invincible(float time)
@@ -178,7 +183,7 @@ public class Boss : Enemy
         //残像の状態のセット
         foreach (var afterimage in afterimages)
         {
-            if (afterimage.animator == animator) afterimage.SetCondition(condition, invincibleTime);
+            if (afterimage?.animator == animator) afterimage.SetCondition(condition, invincibleTime);
         }
     }
     //固有スキル
@@ -236,7 +241,7 @@ public class Boss : Enemy
         GameManager.boss = null; 
         foreach(var afterimage in afterimages)
         {
-            Destroy(afterimage.gameObject);
+            Destroy(afterimage?.gameObject);
         }
     }
     [System.Serializable]

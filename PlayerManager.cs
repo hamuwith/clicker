@@ -76,6 +76,7 @@ public class PlayerManager : MonoBehaviour
     bool guard;//ガード成功
     bool guardAcceptable;//ガード可能かどうか
     bool invincible;//無敵かどうか
+    bool avoidance;//回避かどうか
     protected float[] coolCounts;//クールタイムカウント
     protected GameManager.Character character;//ステータス
     float autoClickCount;//自動クリックカウント
@@ -516,7 +517,6 @@ public class PlayerManager : MonoBehaviour
             }
             if (clickDuration > 0f && GameManager.gameManager.GetEvo(this, skillId))
             {
-                Debug.Log("in");
                 if (enumerator != null) StopCoroutine(enumerator);
                 enumerator = SkillClick(clickDuration, clickDelay);
                 StartCoroutine(enumerator);
@@ -531,6 +531,10 @@ public class PlayerManager : MonoBehaviour
             if (condition == Afterimage.Condition.InvinciblePlus)
             {
                 StartCoroutine(Invincible(invincibleTime));
+            }
+            else if(condition == Afterimage.Condition.AvoidancePlus)
+            {
+                StartCoroutine(AvoidancePlus(invincibleTime));
             }
             this.condition = condition;
             if(hash == cancelHash)
@@ -575,6 +579,13 @@ public class PlayerManager : MonoBehaviour
         invincible = true;
         yield return new WaitForSeconds(time);
         invincible = false;
+    }
+    //回避時間のセット
+    IEnumerator AvoidancePlus(float time)
+    {
+        avoidance = true;
+        yield return Invincible(time);
+        avoidance = false;
     }
     //通常攻撃エフェクト位置(アニメーションより使用)
     protected virtual void SlashParticlePlay(int num)
@@ -659,10 +670,10 @@ public class PlayerManager : MonoBehaviour
     //通常攻撃のエフェクトのデータ
     protected virtual (float positionX, float positionY, float rotationX, float rotationY, float rotationZ) SetParticle(int num)
     {
-        if (num == 0) return (0f, 1.06f, -0.87f, 0f, -1.63f);
-        else if (num == 1) return (0f, 1.04f, 0.87f, 0f, 1.38f);
-        else if (num == 2) return (0.68f, 1.57f, 0f, 0.5f, -1.65f);
-        else return (-0.18f, 1.89f, 0f, 3.14f, 3.16f);
+        if (num == 0) return (0f, 1.06f, 0.58835f, -0.094f, -1.2486f);
+        else if (num == 1) return (-0.4f, 1f, -0.967f, 0.653f, 1.864f);
+        else if (num == 2) return (0f, 1.46f, 2.2375f, -3.197f, 2.5028f);
+        else return (0.07f, 1.3f, 0.54786f, -3.4383f, 3.616f);
     }
     //通常バフ攻撃のエフェクトのデータ
     (float positionX, float positionY, float rotationX, float rotationY, float rotationZ) SetSkillParticle(int num)
@@ -673,10 +684,12 @@ public class PlayerManager : MonoBehaviour
         else return (0.15f, 1.1f, 0f, 2.61f, -2.3f);
     }
     //ヒットストップ
-    public void HitStop(float time)
+    public void HitStop(float time, float scale)
     {
-        Time.timeScale = 0.15f;
-        hitStopCount = Mathf.Max(time, hitStopCount);
+        if (time <= hitStopCount) return;
+        hitStopCount = time;
+        GameManager.cameraManager.ZoomCamera(hitStopCount);
+        Time.timeScale = scale;
     }
     //当たり判定処理
     private void OnTriggerEnter2D(Collider2D collision)
@@ -688,24 +701,25 @@ public class PlayerManager : MonoBehaviour
     //ダメージを受けたときの処理
     public IEnumerator Damage(AttackCollisionValue attackCollisionValue)
     {
-        if (condition != Afterimage.Condition.Null || invincible)
+        if (condition != Afterimage.Condition.Null || invincible || avoidance)
         {
             foreach (var afterimage in afterimages)
             {
                 afterimage.SetScale();
             }
         }
-        if (invincible)
+        if (avoidance)
         {
+            HitStop(0.45f, 0.15f);
             GameManager.popTextManager.SetPopText("回避", this, anotherSpeechBubbleColor, PopTextManager.Kind.Avoidance);
             yield break;
         }
-        else if (condition == Afterimage.Condition.Invincible)
+        else if (condition == Afterimage.Condition.Invincible || invincible)
         {
             GameManager.popTextManager.SetPopText("無敵", this, anotherSpeechBubbleColor, PopTextManager.Kind.Invincible);
             yield break;
         }
-        if (condition == Afterimage.Condition.Armor)
+        else if (condition == Afterimage.Condition.Armor)
         {
             GameManager.popTextManager.SetPopText("アーマー", this, anotherSpeechBubbleColor, PopTextManager.Kind.Armor);
             hp -= attackCollisionValue.damageRate;
@@ -717,10 +731,11 @@ public class PlayerManager : MonoBehaviour
             guardAcceptable = true;
             guard = false;
         }
-        yield return new WaitForSeconds(0.05f);
+        yield return new WaitForSeconds(0.02f);
         guardAcceptable = false;
         if (guard)
         {
+            HitStop(0.45f, 0.15f);
             GameManager.popTextManager.SetPopText("ガード", this, anotherSpeechBubbleColor, PopTextManager.Kind.Guard);
             yield break;
         }
@@ -731,6 +746,7 @@ public class PlayerManager : MonoBehaviour
         if (down >= 1f)
         {
             var duration = attackCollisionValue.force.y / 12;
+            GameManager.cameraManager.ShakeCamera(duration * 2f);
             ResetForce(true);
             animator.SetTrigger(downHash);
             skill = true;
@@ -757,6 +773,7 @@ public class PlayerManager : MonoBehaviour
         {
             var duration = (Mathf.Abs(attackCollisionValue.force.x) + attackCollisionValue.force.y) / 24;
             if (duration <= 0f) yield break;
+            GameManager.cameraManager.ShakeCamera(duration);
             ResetForce(duration);
             skill = true;
             vector3 = transform.position + attackCollisionValue.force / 5 * (left ? -1 : 1);

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System;
 
 public class EnemyManager : MonoBehaviour
 {
@@ -8,7 +9,11 @@ public class EnemyManager : MonoBehaviour
     float time;//敵追加時間カウント
     public bool stopSpown;//ボス時スポンの停止
     [SerializeField] Transform spawnPosition;//スポン位置
+    [SerializeField] Transform deathPosition;//デス位置
     readonly float enemySpawn = 1f;//敵追加時間
+    Action<float> onGroupSpawn;
+    int groupNum;
+    int groupCount;
     //初期化
     public void Start0()
     {
@@ -27,10 +32,11 @@ public class EnemyManager : MonoBehaviour
                 {
                     if(enemySet.distance <= GameManager.playerManager.distance && enemySet.count < enemySet.num)
                     {
-                        time = 0f;
                         enemySet.count++;
                         enemies.Add(Instantiate(enemySet.enemy, transform));
-                        enemies[enemies.Count - 1].Start0(spawnPosition);
+                        if (enemies[enemies.Count - 1].groupSize > 0f) groupNum = enemySet.num;
+                        else time = 0f;
+                        enemies[enemies.Count - 1].Start0(spawnPosition, deathPosition);
                         if (enemySet.boss) stopSpown = true;
                         break;
                     }
@@ -42,9 +48,24 @@ public class EnemyManager : MonoBehaviour
             enemy.Update0();
         }
     }
+    public void SetGroupSpawn(Action<float, int> action)
+    {
+        int group = groupCount;
+        onGroupSpawn += (f) => action(f, group);
+        groupCount++;
+        if (groupNum > groupCount) return;
+        onGroupSpawn?.Invoke(GetRandom());
+        groupCount = 0;
+        onGroupSpawn = null;
+    }
+    public float GetRandom()
+    {
+        return UnityEngine.Random.Range(0f, 2f);
+    }
     //敵の削除
     public bool DestroyEnemy(bool all)
     {
+        if (enemies.Count > 0) return false;
         if (all)
         {
             Destroy(enemies[enemies.Count - 1].gameObject);
