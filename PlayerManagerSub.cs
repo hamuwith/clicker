@@ -121,7 +121,7 @@ public class PlayerManagerSub : PlayerManager
         if (skillIdSkillParticle == 0)
         {
             main.startSize = size * 8f;
-            skillEffect.transform.position = transformSkillParticle.position + (left ? Vector3.right : Vector3.left) * 1.2f + Vector3.up * 0.4f;
+            skillEffect.transform.position = transformSkillParticle.position + new Vector3(left ? 1 : -1, 0.4f, 0f);
         }
         else if (skillIdSkillParticle == 1)
         {
@@ -185,7 +185,7 @@ public class PlayerManagerSub : PlayerManager
         ice.Stop();
     }
     //アイス攻撃対象セット
-    public void Ice(Enemy enemy, AttackCollisionValue attackCollisionValue)
+    public void Ice(Enemy enemy, AttackCollisionValue attackCollisionValue, Collider2D collision)
     {
         float mag = (enemy.transform.position - transform.position).sqrMagnitude;
         if (iceParameter.sqrMag > mag)
@@ -193,6 +193,7 @@ public class PlayerManagerSub : PlayerManager
             iceParameter.targetIce = enemy;
             iceParameter.sqrMag = mag;
             iceParameter.iceAttackCollisionValue = attackCollisionValue;
+            iceParameter.collider2D = collision;
         }
     }
     //アイスの初期化
@@ -217,7 +218,7 @@ public class PlayerManagerSub : PlayerManager
         else
         {
             ice.SetSpriteSize(iceParameter.targetIce?.transform, left);
-            iceParameter.targetIce.Damage(iceParameter.iceAttackCollisionValue, default);
+            iceParameter.targetIce.Damage(iceParameter.iceAttackCollisionValue, default, iceParameter.collider2D);
             if (iceParameter.clickDamage) SkillEffectPlay(1, ice.transform);
         }
     }
@@ -277,6 +278,7 @@ public class PlayerManagerSub : PlayerManager
         public AttackCollisionValue iceAttackCollisionValue;
         public bool click;
         public bool clickDamage;
+        public Collider2D collider2D;
         public IceParameter()
         {
             sqrMag = Mathf.Infinity;

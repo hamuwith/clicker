@@ -497,10 +497,10 @@ public class PlayerManager : MonoBehaviour
         float addX = UnityEngine.Random.Range(6f, 10f);
         float addY = addX * Mathf.Sin(add);
         addX = addX * Mathf.Cos(add);
-        moonEffect.transform.position = vector3 + addX * Vector3.right + addY * Vector3.up;
+        moonEffect.transform.position = vector3 + new Vector3(addX, addY, 0f);
         SkillEffectPlay(2, moonEffect.transform);
         moonEffect.Play();
-        GameManager.attackCollisionManager.SetCollision(attackCollisionValueMoonEvo, vector3 + addX * Vector3.right + addY * Vector3.up, null);
+        GameManager.attackCollisionManager.SetCollision(attackCollisionValueMoonEvo, vector3 + new Vector3(addX, addY, 0f), null);
     }
     //各アニメーション開始時
     public virtual void AnimationStart(Animator animator, Afterimage.Condition condition, int hash, float invincibleTime, int skillId, float clickDelay, float clickDuration)
@@ -684,11 +684,11 @@ public class PlayerManager : MonoBehaviour
         else return (0.15f, 1.1f, 0f, 2.61f, -2.3f);
     }
     //ヒットストップ
-    public void HitStop(float time, float scale)
+    public void HitStop(float time, float scale,bool zoom, in Vector2 worldPoint = default)
     {
         if (time <= hitStopCount) return;
         hitStopCount = time;
-        GameManager.cameraManager.ZoomCamera(hitStopCount);
+        if(zoom) GameManager.cameraManager.ZoomCamera(hitStopCount, worldPoint);
         Time.timeScale = scale;
     }
     //当たり判定処理
@@ -696,10 +696,10 @@ public class PlayerManager : MonoBehaviour
     {
         if (!collision.CompareTag("EnemyWeapon")) return;
         (AttackCollisionValue attackCollisionValue0, _)  = collision.gameObject.GetComponent<AttackCollision>().GetAttackCollisionValue();
-        StartCoroutine(Damage(attackCollisionValue0));
+        StartCoroutine(Damage(attackCollisionValue0, collision));
     }
     //ダメージを受けたときの処理
-    public IEnumerator Damage(AttackCollisionValue attackCollisionValue)
+    public IEnumerator Damage(AttackCollisionValue attackCollisionValue, Collider2D collider2D)
     {
         if (condition != Afterimage.Condition.Null || invincible || avoidance)
         {
@@ -710,7 +710,7 @@ public class PlayerManager : MonoBehaviour
         }
         if (avoidance)
         {
-            HitStop(0.45f, 0.15f);
+            HitStop(0.45f, 0.15f, true, collider2D.ClosestPoint(transform.position));
             GameManager.popTextManager.SetPopText("回避", this, anotherSpeechBubbleColor, PopTextManager.Kind.Avoidance);
             yield break;
         }
@@ -735,7 +735,7 @@ public class PlayerManager : MonoBehaviour
         guardAcceptable = false;
         if (guard)
         {
-            HitStop(0.45f, 0.15f);
+            HitStop(0.45f, 0.15f, true, collider2D.ClosestPoint(transform.position));
             GameManager.popTextManager.SetPopText("ガード", this, anotherSpeechBubbleColor, PopTextManager.Kind.Guard);
             yield break;
         }

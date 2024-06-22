@@ -15,27 +15,50 @@ public class CameraManager : MonoBehaviour
     [SerializeField] Warning warning;//ボス演出
     [SerializeField] BossName bossName;//ボスの名前表示
     readonly float bossNameY = 7f;//ボスの名前の表示高さ
+    [SerializeField] Material zoomMaterial;
+    readonly int screenPosition = Shader.PropertyToID("_position");
+    readonly int duration = Shader.PropertyToID("_duration");
+    readonly int isZoom = Shader.PropertyToID("_isZoom");
+    Sequence sequence;
     public void Start0() 
     {
         vector3 = transform.position;
+        zoomMaterial.SetInt(isZoom, 0);
     }
+    //ダメージ表現
     public void ShakeCamera(float value)
     {
         tweener?.Complete();
         tweener = transform.DOShakePosition(value * 0.2f, value * 0.4f, (int)(value * 100f))
             .SetUpdate(true);
     }
-    public void ZoomCamera(float value)
+    //成功表現
+    public void ZoomCamera(float value, in Vector2 worldPoint = default)
     {
-        tweener?.Complete();
-        tweener = Camera.main.DOOrthoSize(Camera.main.orthographicSize - value * 0.1f, value)
-            .SetLoops(2, LoopType.Yoyo)
-            .SetUpdate(true);
+        //tweener?.Complete();
+        //tweener = Camera.main.DOOrthoSize(Camera.main.orthographicSize - value * 0.1f, value)
+        //    .SetLoops(2, LoopType.Yoyo)
+        //    .SetUpdate(true);
+        sequence?.Complete();
+        zoomMaterial.SetInt(isZoom, 1);
+        zoomMaterial.SetVector(screenPosition, Camera.main.WorldToViewportPoint(worldPoint));
+        sequence = DOTween.Sequence()
+                .Append(DOTween.To(() => 0f, (x) =>
+                {
+                    zoomMaterial.SetFloat(duration, x);
+                }, 1f, value * 0.4f))
+                .AppendInterval(value * 0.2f)
+                .Append(DOTween.To(() => 1f, (x) =>
+                {
+                    zoomMaterial.SetFloat(duration, x);
+                }, 0f, value * 0.4f))
+                .OnComplete(() => zoomMaterial.SetInt(isZoom, 0))
+                .SetUpdate(true); 
     }
     //ボスにズーム
     public void Zoom(Transform _transform)
     {
-        GameManager.playerManager.HitStop(zoomTime * 2f + zoomChangeTime * 4f, 0.5f);
+        GameManager.playerManager.HitStop(zoomTime * 2f + zoomChangeTime * 4f, 0.5f, false);
         zoomTarget = true;
         DOTween.Sequence()
                 .Append(transform.DOMoveX(_transform.position.x, zoomChangeTime)
@@ -44,11 +67,11 @@ public class CameraManager : MonoBehaviour
                         StartCoroutine(GameManager.gameManager.EnemyDestroy(false));
                     }))
                 .AppendInterval(zoomTime)
-                .Append(transform.DOMoveX(GameManager.playerManager.transform.position.x + offset, zoomChangeTime)
-                    .OnComplete(() =>
-                    {
-                        zoomTarget = false;
-                    }));          
+                .Append(transform.DOMoveX(GameManager.playerManager.transform.position.x + offset, zoomChangeTime))
+                .OnComplete(() =>
+                {
+                    zoomTarget = false;
+                });  
     }
     public void CreateWarning()
     {

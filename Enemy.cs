@@ -103,11 +103,11 @@ public class Enemy : MonoBehaviour
         //アイス攻撃なら関数を起動
         if (attackCollisionValue0.special == AttackCollisionValue.Special.Ice)
         {
-            GameManager.playerManagerSub.Ice(this, attackCollisionValue0);
+            GameManager.playerManagerSub.Ice(this, attackCollisionValue0, collision);
             return;
         }
         //ダメージ、ノックバック、ダウンの処理
-        Damage(attackCollisionValue0, transform.position.x - (attackCollision.transform.position.x + attackCollisionValue0.velocity.x * attackCollisionValue0.interval));
+        Damage(attackCollisionValue0, transform.position.x - (attackCollision.transform.position.x + attackCollisionValue0.velocity.x * attackCollisionValue0.interval), collision);
         //毒攻撃なら関数起動
         if (attackCollisionValue0.special == AttackCollisionValue.Special.Poison)
         {
@@ -116,7 +116,7 @@ public class Enemy : MonoBehaviour
         //感電状態なら追加ダメージとエフェクト
         if (effects[(int)AttackCollisionValue.Effect.Kanden - 1].IsAlive(true) && attackCollisionValue.special != AttackCollisionValue.Special.Kanden)
         {
-            Damage(GameManager.effect[(int)AttackCollisionValue.Effect.Kanden - 1].attackCollisionValue, default);
+            Damage(GameManager.effect[(int)AttackCollisionValue.Effect.Kanden - 1].attackCollisionValue, default, collision);
             kandenDamage.transform.position = collision.ClosestPoint(transform.position);
             kandenDamage.Play();
         }
@@ -168,7 +168,7 @@ public class Enemy : MonoBehaviour
         if (particleSystemAttack.enumerator != null) StopCoroutine(particleSystemAttack.enumerator);
         if (particleSystemAttack.dependence && particleSystemAttack.particleSystem.IsAlive()) particleSystemAttack.particleSystem.Stop();
     }
-    public void Damage(AttackCollisionValue attackCollisionValue, float rightRate)
+    public void Damage(AttackCollisionValue attackCollisionValue, float rightRate,  Collider2D collision)
     {
         //残像表示時、視覚でわかるように残像の拡大
         if (condition != Afterimage.Condition.Null || invincible)
@@ -197,7 +197,7 @@ public class Enemy : MonoBehaviour
             if (hp <= 0f)
             {
                 //吹っ飛び
-                Kill(damage, playerManager);
+                Kill(damage, playerManager, collision);
             }
             return;
         }
@@ -210,7 +210,7 @@ public class Enemy : MonoBehaviour
             if (down >= 1f)
             {
                 //ノックダウン
-                KnockDown(rightRate, playerManager);
+                KnockDown(rightRate, playerManager, collision);
             }
             else
             {
@@ -221,10 +221,10 @@ public class Enemy : MonoBehaviour
         else
         {
             //吹っ飛び
-            Kill(damage, playerManager);
+            Kill(damage, playerManager, collision);
         }
     }
-    void Kill(float damage, PlayerManager playerManager)
+    void Kill(float damage, PlayerManager playerManager, Collider2D collider2D)
     {
         //吹っ飛び
         vector3.x = attackCollisionValue.force.normalized.x * 35f * (right ? 1 : -1);
@@ -241,7 +241,7 @@ public class Enemy : MonoBehaviour
             })
             .OnStart(() =>
             {
-                DeathHitStop();
+                DeathHitStop(collider2D);
             })
             .OnUpdate(() =>
             {
@@ -262,7 +262,7 @@ public class Enemy : MonoBehaviour
         //経験値のセット
         GameManager.expManagers[attackCollisionValue.sub ? 1 : 0].SetExp((int)(damage + exp), transformDamage, !playerManager.left);
     }
-    void KnockDown(float rightRate, PlayerManager playerManager)
+    void KnockDown(float rightRate, PlayerManager playerManager, Collider2D collision)
     {
         //ダウン処理
         var duration = attackCollisionValue.force.y * forceRate / 12 / down;
@@ -279,7 +279,7 @@ public class Enemy : MonoBehaviour
         tweenerY = transform.DOMoveY(vector3.y, duration / 2)
             .OnComplete(() =>
             {
-                Down();
+                Down(collision);
             });
         animator.SetTrigger(downHash);
         foreach (var afterimage in afterimages)
@@ -291,13 +291,13 @@ public class Enemy : MonoBehaviour
     {
         return hp / maxhp;
     }
-    protected virtual void DeathHitStop()
+    protected virtual void DeathHitStop(Collider2D collider2D)
     {
-        if (!attackCollisionValue.autoAtk) GameManager.playerManager.HitStop(0.25f, 0.15f);
-        else GameManager.playerManager.HitStop(0.08f, 0.15f);
+        if (!attackCollisionValue.autoAtk) GameManager.playerManager.HitStop(0.25f, 0.15f, false);
+        else GameManager.playerManager.HitStop(0.08f, 0.15f, false);
     }
     //飛ばられた後の処理
-    void Down()
+    void Down(Collider2D collider2D)
     {
         if (kind == Kind.Normal)
         {
@@ -308,7 +308,7 @@ public class Enemy : MonoBehaviour
                 })
                 .OnStart(() =>
                 {
-                    if (!attackCollisionValue.autoAtk) GameManager.playerManager.HitStop(0.1f, 0.15f);
+                    if (!attackCollisionValue.autoAtk) GameManager.playerManager.HitStop(0.1f, 0.15f, false);
                 })
                 .SetEase(Ease.InQuad);
         }
@@ -410,7 +410,7 @@ public class Enemy : MonoBehaviour
         {
             transform.position = (Vector2)spawnPoint.transform.position + _random * -2f * inversionVector2 + Vector2.up * 12f;
             velocityVector = (GameManager.playerManager.GetPlayerCenter() - transform.position).normalized;
-            transform.position += num / 3 * Random.Range(groupSize * 0.7f, groupSize * 1.3f) * Vector3.right + Vector3.up * (num % 3 - 1) * Random.Range(groupSize * 0.7f, groupSize * 1.3f);
+            transform.position += num / 3 * new Vector3(Random.Range(groupSize * 0.7f, groupSize * 1.3f), (num % 3 - 1) * Random.Range(groupSize * 0.7f, groupSize * 1.3f), 0f);
         }
         death = false;
         right = true;
@@ -571,7 +571,7 @@ public class Enemy : MonoBehaviour
     //状態異常の処理
     public void Effect(AttackCollisionValue.Effect effect, float value)
     {
-        if (effect == AttackCollisionValue.Effect.Poison) Damage(GameManager.effect[(int)effect - 1].attackCollisionValue, default);
+        if (effect == AttackCollisionValue.Effect.Poison) Damage(GameManager.effect[(int)effect - 1].attackCollisionValue, default, null);
     }
     protected virtual void OnDestroy()
     {

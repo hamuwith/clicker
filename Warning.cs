@@ -13,7 +13,7 @@ public class Warning : MonoBehaviour
     [SerializeField] TextMeshPro warningText;
     [SerializeField] GameObject baseGameObject;
     readonly float endPoint = 60f;
-    readonly float deisplayTime = 3.5f;
+    readonly float deisplayTime = 2.5f;
     public void SetWarning(float zoomTime, float zoomChangeTime)
     {
         float f = zoomTime + 2 * zoomChangeTime;

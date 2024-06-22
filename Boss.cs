@@ -52,9 +52,9 @@ public class Boss : Enemy
         }
     }
     //倒されたときヒットストップ
-    protected override void DeathHitStop()
+    protected override void DeathHitStop(Collider2D collider2D)
     {
-        GameManager.playerManager.HitStop(0.6f, 0.15f);
+        GameManager.playerManager.HitStop(0.6f, 0.15f, true, collider2D.ClosestPoint(transform.position));
     }
     public override void Update0()
     {
