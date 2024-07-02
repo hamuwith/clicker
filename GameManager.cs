@@ -537,6 +537,7 @@ public class GameManager : MonoBehaviour
     {
         if (playerManager == null) return false;
         ChangeNumIn(ref skillId, playerManager);
+        if (skillId < 0) return false;
         Character character = playerManager == GameManager.playerManager ? this.character : characterSub;
         return character.skills[skillId].status[2].lv > 0;
     }

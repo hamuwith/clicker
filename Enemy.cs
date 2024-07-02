@@ -43,8 +43,9 @@ public class Enemy : MonoBehaviour
     Material material;//スプライトのマテリアル、ハイパーアーマー時赤くする
     protected bool armorbool;//ハイパーアーマー状態か
     [SerializeField] ParticleDelay particleSystemAttack;//攻撃のエフェクト
-    [SerializeField] bool throwPlayer;
-    Vector3 velocityVector;
+    [SerializeField] bool throwPlayer;//通り過ぎる敵
+    Vector3 velocityVector;//移動する向き
+    public bool inversion;//どっち向きか
     enum Armor
     {
         Null,
@@ -168,10 +169,14 @@ public class Enemy : MonoBehaviour
         if (particleSystemAttack.enumerator != null) StopCoroutine(particleSystemAttack.enumerator);
         if (particleSystemAttack.dependence && particleSystemAttack.particleSystem.IsAlive()) particleSystemAttack.particleSystem.Stop();
     }
+    protected virtual bool Counter()
+    {
+        return false;
+    }
     public void Damage(AttackCollisionValue attackCollisionValue, float rightRate,  Collider2D collision)
     {
         //残像表示時、視覚でわかるように残像の拡大
-        if (condition != Afterimage.Condition.Null || invincible)
+        if (condition != Afterimage.Condition.Null || invincible || armorbool)
         {
             foreach (var afterimage in afterimages)
             {
@@ -180,6 +185,7 @@ public class Enemy : MonoBehaviour
         }
         //無敵ならここまで
         if (condition == Afterimage.Condition.Invincible || invincible) return;
+        if (!attackCollisionValue.sub && Counter()) return;
         //ダメージのセット
         PlayerManager playerManager = attackCollisionValue.sub ? GameManager.playerManagerSub : GameManager.playerManager;
         float damage = GameManager.gameManager.GetDamage(attackCollisionValue);
@@ -191,6 +197,16 @@ public class Enemy : MonoBehaviour
         //ダメージの表示
         //GameManager.damageManagers[attackCollisionValue.sub ? 1 : 0].SetDamage((int)damage, transformDamage, true);
         if (hp > 0f) GameManager.expManagers[attackCollisionValue.sub ? 1 : 0].SetExp((int)damage, transformDamage, !playerManager.left);
+        if(attackCollisionValue.special == AttackCollisionValue.Special.ArmorBreak)
+        {
+            condition = Afterimage.Condition.Null;
+            armorbool = false;
+            //残像の状態のセット
+            foreach (var afterimage in afterimages)
+            {
+                if (afterimage?.animator == animator) afterimage.SetCondition(Afterimage.Condition.ArmorBreak, 0f);
+            }
+        }
         //ハイパーアーマーならここまで
         if (condition == Afterimage.Condition.Armor || armorbool)
         {
@@ -451,7 +467,7 @@ public class Enemy : MonoBehaviour
                 }
             } 
         }
-        if (!throwPlayer || currectAnime == standupHash || currectAnime == knockHash)
+        if (!throwPlayer && (currectAnime == standupHash || currectAnime == knockHash))
         {
             //振りむきのセット
             SetRight(1f);
@@ -476,7 +492,7 @@ public class Enemy : MonoBehaviour
             }
         }
         //向き
-        transform.localScale = scale * (right ? Vector2.one : inversionVector2);
+        transform.localScale = scale * (right ^ inversion ? Vector2.one : inversionVector2);
         //アタックカウント
         if (attackCount > 0f)
         {

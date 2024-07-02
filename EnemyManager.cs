@@ -11,9 +11,9 @@ public class EnemyManager : MonoBehaviour
     [SerializeField] Transform spawnPosition;//スポン位置
     [SerializeField] Transform deathPosition;//デス位置
     readonly float enemySpawn = 1f;//敵追加時間
-    Action<float> onGroupSpawn;
-    int groupNum;
-    int groupCount;
+    Action<float> onGroupSpawn;//グループスポン
+    int groupNum;//グループで生成される敵
+    int groupCount;//グループで生成される敵のカウント
     //初期化
     public void Start0()
     {
@@ -65,7 +65,7 @@ public class EnemyManager : MonoBehaviour
     //敵の削除
     public bool DestroyEnemy(bool all)
     {
-        if (enemies.Count > 0) return false;
+        if (enemies.Count <= 0) return false;
         if (all)
         {
             Destroy(enemies[enemies.Count - 1].gameObject);

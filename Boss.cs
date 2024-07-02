@@ -10,14 +10,13 @@ public class Boss : Enemy
     readonly int attackkinHash = Animator.StringToHash("attackkin");
     readonly int distanceHash = Animator.StringToHash("distance");
     readonly int hprateHash = Animator.StringToHash("hprate");
-    [SerializeField] Particle[] skillParticles;
-    [SerializeField] ParticleSystemSkill[] particleSystemSkills;//スキルのエフェクト設定
+    [SerializeField] protected ParticleSystemSkill[] particleSystemSkills;//スキルのエフェクト設定
     [SerializeField] Afterimage[] AfterimageObjects;//残像のゲームオブジェクト
-    [SerializeField] ParticleSystem particleSystemSpecial4;//特殊エフェクト
-    [SerializeField] AttackCollisionValue AttackCollisionValueSpecial4;//特殊当たり判定
-    [SerializeField] string name;
-    [SerializeField] Color motif;
-    Vector2 vector2;//一時利用
+    [SerializeField] protected ParticleSystem particleSystemSpecial4;//特殊エフェクト
+    [SerializeField] protected AttackCollisionValue AttackCollisionValueSpecial4;//特殊当たり判定
+    [SerializeField] string name;//ボスの名前
+    [SerializeField] Color motif;//ボスのモチーフカラー
+    protected Vector2 vector2;//一時利用
     IEnumerator enumerator;//無敵時間処理
     readonly float armorTime = 1.5f; //起き上がりアーマー時間
     public bool Skill(int i)
@@ -154,19 +153,19 @@ public class Boss : Enemy
         enumerator = null;
     }
     //アニメーション開始時
-    public void AnimationStart(int hash, int skillId, float cooltime, Afterimage.Condition condition, float invincibleTime, Animator animator)
+    public void AnimationStart(int hash, int skillId, float cooltime, Afterimage.Condition condition, float invincibleTime, Animator animator,float cycleOffset)
     {
-        if(this.animator == animator)
+        if (this.animator == animator)
         {
             if (skillId >= 0 && skillId < skillSets.Length)
             {
                 skillSets[skillId].coolCount = cooltime; //クールタイムのセット
-                ParticlePlaySkill(skillId);//エフェクトのセット
+                ParticlePlaySkill(skillId, cycleOffset);//エフェクトのセット
             }
             //無敵時間指定なら
             if (condition == Afterimage.Condition.InvinciblePlus)
             {
-                if(enumerator != null) StopCoroutine(enumerator);
+                if (enumerator != null) StopCoroutine(enumerator);
                 enumerator = Invincible(invincibleTime);
                 StartCoroutine(enumerator);
             }
@@ -187,7 +186,7 @@ public class Boss : Enemy
         }
     }
     //固有スキル
-    void Special(int skillId)
+    protected virtual void Special(int skillId)
     {
         if(skillId == 4)
         {
@@ -210,18 +209,19 @@ public class Boss : Enemy
         }
     }
     //スキルエフェクトのセット
-    public virtual void ParticlePlaySkill(int num)
+    public virtual void ParticlePlaySkill(int num, float cycleOffset)
     {
         foreach (var particleSystem in particleSystemSkills[num].particleDelays)
         {
-            particleSystem.enumerator = SkillParticlePlay(particleSystem, num);
+            particleSystem.enumerator = SkillParticlePlay(particleSystem, num, cycleOffset);
             StartCoroutine(particleSystem.enumerator);
         }
     }
     //スキルエフェクトのディレイ
-    protected virtual IEnumerator SkillParticlePlay(ParticleDelay particleDelay, int num)
+    protected virtual IEnumerator SkillParticlePlay(ParticleDelay particleDelay, int num, float cycleOffset)
     {
-        yield return new WaitForSeconds(particleDelay.delay);
+        yield return new WaitForSeconds(particleDelay.delay - cycleOffset);
+        if (!particleDelay.dependence) particleDelay.particleSystem.transform.localScale = right? Vector2.one : inversionVector2;
         particleDelay.particleSystem.Play();
         Special(num);
     }
@@ -232,7 +232,7 @@ public class Boss : Enemy
         foreach (var particleSystem in particleSystemSkills[num].particleDelays)
         {
             if(particleSystem.enumerator != null) StopCoroutine(particleSystem.enumerator);
-            if (particleSystem.dependence && particleSystem.particleSystem.IsAlive()) particleSystem.particleSystem.Stop();
+            if(particleSystem.dependence && particleSystem.particleSystem.IsAlive()) particleSystem.particleSystem.Stop();
         }
     }
     protected override void OnDestroy()

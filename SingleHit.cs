@@ -16,7 +16,7 @@ public class SingleHit : MonoBehaviour
     public bool Set(Vector2 vector2, bool left)
     {
         transform.position = vector2;
-        particleSystem0.transform.localScale = left ? GameManager.playerManager.hanten: Vector2.one;        
+        particleSystem0.transform.localScale = left ? GameManager.playerManager.inversionVector2 : Vector2.one;        
         return Set();
     }
     //ƒZƒbƒg

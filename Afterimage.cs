@@ -22,7 +22,8 @@ public class Afterimage : MonoBehaviour
         ArmorPlus,
         Invincible,
         InvinciblePlus,
-        AvoidancePlus
+        AvoidancePlus,
+        ArmorBreak
     }
     //初期化ボス用
     public void Init(Boss boss)
@@ -90,12 +91,12 @@ public class Afterimage : MonoBehaviour
         if (playerManager != null)
         {
             transform.position = playerManager.transform.position;
-            transform.localScale = (playerManager.left ? playerManager.hanten : Vector2.one) * playerManager.scale;
+            transform.localScale = (playerManager.left ? playerManager.inversionVector2 : Vector2.one) * playerManager.scale;
         }
         else
         {
             transform.position = boss.transform.position;
-            transform.localScale = (!boss.right ? Enemy.inversionVector2 : Vector2.one) * boss.scale;
+            transform.localScale = (boss.right ^ boss.inversion ? Vector2.one : Enemy.inversionVector2) * boss.scale;
         }
         yield return new WaitForSeconds(offsetTime);
         animator.SetTrigger(hash);
@@ -103,6 +104,7 @@ public class Afterimage : MonoBehaviour
     //残像のセット
     public void SetCondition(Condition condition, float time)
     {
+        if(condition == Condition.ArmorBreak) armor = false;
         this.condition = condition;
         if (invincible) return;
         if (armor) return;

@@ -104,7 +104,7 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] ParticleSystem moonEffect;//進化スキルの追加エフェクト
     [SerializeField] AttackCollisionValue attackCollisionValueMoonEvo;//進化スキルの追加ダメージ
     readonly Vector3 offsetSkill2 = new Vector3(8f, 2.7f, 0f);//進化スキルの位置
-    readonly public Vector2 hanten = new Vector2(-1f, 1f);
+    readonly public Vector2 inversionVector2 = new Vector2(-1f, 1f);
     public float scale = 3f;//デフォルトスケール
     public Transform popTextTransform;//吹き出しの座標
     [SerializeField] protected Color autoAttackColor;//通常攻撃の吹き出しの色
@@ -276,15 +276,27 @@ public class PlayerManager : MonoBehaviour
         }
         EvoSkill();
         if (skill) return;
-        left = GameManager.boss?.transform.position.x < transform.position.x;
-        transform.localScale = (left ? hanten : Vector2.one) * scale;
-        popTextTransform.localScale = (left ? hanten : Vector2.one) / scale;
+        SetRight(2.5f);
+        transform.localScale = (left ? inversionVector2 : Vector2.one) * scale;
+        popTextTransform.localScale = (left ? inversionVector2 : Vector2.one) / scale;
         for (int i = character.skills.Length - 1; i >= 0; i--)
         {
             if (character.skills[i].auto)
             {
                 Skill(GameManager.gameManager.ChangeNumOut(i, this));
             }
+        }
+    }
+    //向きの設定
+    public void SetRight(float offset)
+    {
+        if (offset <= GameManager.boss?.transform.position.x - transform.position.x)
+        {
+            left = false;
+        }
+        else if (-offset > GameManager.boss?.transform.position.x - transform.position.x)
+        {
+            left = true;
         }
     }
     public virtual void Resuscitation()
@@ -326,7 +338,7 @@ public class PlayerManager : MonoBehaviour
     //進化スキルクリック時
     protected virtual void EvoSkill()
     {
-        if (skillId == 0 && skillClick)
+        if (skillId == 6 && skillClick)
         {
             SkillEffectPlay(0, transformOnigiriEffect); 
             GameManager.attackCollisionManager.SetCollision(attackCollisionValueOnigiriEvo, transformOnigiriEffect.position, null);
@@ -499,6 +511,7 @@ public class PlayerManager : MonoBehaviour
         addX = addX * Mathf.Cos(add);
         moonEffect.transform.position = vector3 + new Vector3(addX, addY, 0f);
         SkillEffectPlay(2, moonEffect.transform);
+        moonEffect.transform.localScale = left ? inversionVector2 : Vector2.one;
         moonEffect.Play();
         GameManager.attackCollisionManager.SetCollision(attackCollisionValueMoonEvo, vector3 + new Vector3(addX, addY, 0f), null);
     }
@@ -508,14 +521,17 @@ public class PlayerManager : MonoBehaviour
         if (this.animator == animator)
         {
             this.skillId = skillId;
-            if (skillId >= 0 && skillId < coolCounts.Length)
+            if (skillId >= 0)
             {
-                coolCounts[skillId] = GameManager.gameManager.GetCoolTime(skillId, false);
+                if (skillId < coolCounts.Length)
+                {
+                    coolCounts[skillId] = GameManager.gameManager.GetCoolTime(skillId, false);
+                    GameManager.gameManager.SetCutIn(skillId, this);
+                }
                 ParticlePlaySkill(skillId);
-                GameManager.gameManager.SetCutIn(skillId,this);
                 //SetText(skillId, addSkill);
             }
-            if (clickDuration > 0f && GameManager.gameManager.GetEvo(this, skillId))
+            if (clickDuration > 0f && (GameManager.gameManager.GetEvo(this, skillId) || skillId == 6))
             {
                 if (enumerator != null) StopCoroutine(enumerator);
                 enumerator = SkillClick(clickDuration, clickDelay);
@@ -620,8 +636,9 @@ public class PlayerManager : MonoBehaviour
         guardParticle.Play();
     }
     //スキルエフェクト
-    public virtual void ParticlePlaySkill(int num)
+    public void ParticlePlaySkill(int num)
     {
+        SpecialParticlePlaySkill(ref num);
         foreach (var particleSystem in particleSystemSkills[num].particleDelays)
         {
             if (particleSystem.particleSystem == scaleSkillParticle)
@@ -633,9 +650,14 @@ public class PlayerManager : MonoBehaviour
             StartCoroutine(particleSystem.enumerator);
         }
     }
+    //特殊スキルエフェクト
+    protected virtual void SpecialParticlePlaySkill(ref int num)
+    {
+    }
     protected IEnumerator SkillParticlePlay(ParticleDelay particleDelay, int num)
     {
         yield return new WaitForSeconds(particleDelay.delay);
+        if (!particleDelay.dependence) particleDelay.particleSystem.transform.localScale = left ? inversionVector2 : Vector2.one;
         particleDelay.particleSystem.Play();
         SpecialSkillParticlePlay(num);
     }

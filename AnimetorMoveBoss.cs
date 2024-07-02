@@ -5,18 +5,17 @@ public class AnimetorMoveBoss : AnimetorMoveScript
 {
     [SerializeField] float cooltime;//クールタイム
     [SerializeField] bool relative;//相対的か
+    [SerializeField] float cycleOffset;//アニメーションのオフセット
     new public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
         ((StateMachineBehaviour)this).OnStateEnter(animator, stateInfo, layerIndex);
         x = 0;
         y = 0;
-        //スキル発動前にボスの向きをセット
-        GameManager.boss.SetRight(0f);
-        //ボスのアニメーション開始時処理
-        GameManager.boss.AnimationStart(stateInfo.shortNameHash, skillId, cooltime, condition, invincibleTime, animator);
         //ボス本体なら
         if (GameManager.boss.animator == animator)
         {
+            //スキル発動前にボスの向きをセット
+            GameManager.boss.SetRight(0f);
             MoveX(GameManager.boss.transform, animator, !GameManager.boss.right);
             MoveY(GameManager.boss.transform);
         }
@@ -33,6 +32,8 @@ public class AnimetorMoveBoss : AnimetorMoveScript
                 }
             }
         }
+        //ボスのアニメーション開始時処理
+        GameManager.boss.AnimationStart(stateInfo.shortNameHash, skillId, cooltime, condition, invincibleTime, animator, cycleOffset);
         if (GameManager.boss.animator != animator) return;
         //ボス本体なら当たり判定をセット
         foreach (var attackCollision in attackCollisions)
@@ -53,6 +54,7 @@ public class AnimetorMoveBoss : AnimetorMoveScript
         ((StateMachineBehaviour)this).OnStateExit(animator, stateInfo, layerIndex);
         tweenerMoveX?.Kill();
         tweenerMoveY?.Kill();
+        if (GameManager.boss.animator != animator) return;
         foreach (var attackCollision in attackCollisions)
         {
             attackCollision.attackCollision?.End(attackCollision.dependence);

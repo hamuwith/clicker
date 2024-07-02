@@ -81,8 +81,8 @@ public class PlayerManagerSub : PlayerManager
         fireEnd.transform.position = _transform.position;
         fireEnd.Play();
     }
-    //スキルエフェクト
-    public override void ParticlePlaySkill(int num)
+    //特殊スキルエフェクト
+    protected override void SpecialParticlePlaySkill(ref int num)
     {
         if (num == 2)
         {
@@ -91,7 +91,6 @@ public class PlayerManagerSub : PlayerManager
             particleSystemSkills[num].particleDelays[1].particleSystem.Play();
             return;
         }
-        base.ParticlePlaySkill(num);
     }
     //毒スキルエフェクト
     IEnumerator PoisonParticlePlay(ParticleDelay particleDelay)
@@ -251,8 +250,8 @@ public class PlayerManagerSub : PlayerManager
     //プレイヤーと離れていたら瞬間移動
     public void Move()
     {
-        left = GameManager.boss?.transform.position.x < transform.position.x;
-        transform.localScale = (left ? hanten : Vector2.one) * scale;
+        SetRight(0f);
+        transform.localScale = (left ? inversionVector2 : Vector2.one) * scale;
         if (!left && (GameManager.playerManager.transform.position.x - transform.position.x > 8.5f || GameManager.playerManager.transform.position.x - transform.position.x < 1f))
         {
             tweener?.Kill();

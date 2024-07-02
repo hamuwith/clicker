@@ -47,6 +47,7 @@ public class AttackCollision : MonoBehaviour
         this.attackCollisionValue = attackCollisionValue;
         this.singleHit = singleHit;
         int side = attackCollisionValue.left ? -1 : 1;
+        if (attackCollisionValue.relative) position = GameManager.boss.transform.position;
         tweener = DOTween.To(() => 0f, (x) =>
         {
             //当たり判定の移動
@@ -218,6 +219,7 @@ public class AttackCollisionValue
     public AttackCollision attackCollision { get; set; }//当たり判定停止用
     public bool dependence;//プレイヤーと独立しているか
     public Vector2 offset;//オフセット
+    public bool relative;//ボスの相対距離攻撃
     public enum Effect    
     { 
         Null,
@@ -238,6 +240,7 @@ public class AttackCollisionValue
         Scale,
         WindAdd,
         ThunderAll,
-        ScaleStart
+        ScaleStart,
+        ArmorBreak
     }
 }

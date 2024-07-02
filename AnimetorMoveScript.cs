@@ -83,6 +83,7 @@ public class AnimetorMoveScript : StateMachineBehaviour
         tweenerMoveX?.Kill();
         tweenerMoveY?.Kill();
         PlayerManager playerManager = sub ? GameManager.playerManagerSub : GameManager.playerManager;
+        if (GameManager.playerManager.animator != animator && !sub) return;
         //エフェクトの停止
         playerManager.ParticlesStopSkill(skillId);
         //当たり判定の停止
