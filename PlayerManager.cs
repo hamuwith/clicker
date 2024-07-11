@@ -13,6 +13,7 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] protected ParticleSystem slashSkillParticleBuff;//通常攻撃スキル発動中エフェクト
     [SerializeField] protected ParticleSystemSkill[] particleSystemSkills;//スキルエフェクト
     [SerializeField] ParticleSystem guardParticle;//ガードエフェクト
+    [SerializeField] protected Material material;//スプライトのマテリアル
     protected Vector2 vector2;//一時利用
     public readonly int attackHash = Animator.StringToHash("attack");
     public readonly int dashHash = Animator.StringToHash("dash");
@@ -30,6 +31,7 @@ public class PlayerManager : MonoBehaviour
     public readonly int resuscitationHash = Animator.StringToHash("resuscitation");
     public readonly int castHash = Animator.StringToHash("cast");
     public readonly int deathHash = Animator.StringToHash("death");
+    public readonly int clearHash = Animator.StringToHash("clear");
     float hitStopCount;//ヒットストップ時間カウント
     protected float atkBuffTime;//通常攻撃バフ時間
     protected float atkBuff;//通常攻撃バフ時間カウント
@@ -75,6 +77,7 @@ public class PlayerManager : MonoBehaviour
     public bool skill { get; protected set; }//スキル可能かどうか
     bool guard;//ガード成功
     bool guardAcceptable;//ガード可能かどうか
+    bool guardAcceptableAuto;//自動ガード可能かどうか
     bool invincible;//無敵かどうか
     bool avoidance;//回避かどうか
     protected float[] coolCounts;//クールタイムカウント
@@ -117,6 +120,8 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] CapsuleCollider2D capsuleCollider2;//自身のコライダー
     PopText popText0;//現在の吹き出し
     [SerializeField] int tutorialId;
+    readonly int colorHash = Shader.PropertyToID("_Color");
+    bool clear;
     public PopText popTextEvo { 
         get 
         {
@@ -192,6 +197,7 @@ public class PlayerManager : MonoBehaviour
     //初期化
     public virtual void Start0()
     {
+        material.SetColor(colorHash, Color.white);
         animator = GetComponent<Animator>();
         prePositionX = transform.position.x;
         hitStopCount = 0f;
@@ -231,13 +237,33 @@ public class PlayerManager : MonoBehaviour
     //プレイヤーをアクティブにした時の処理
     public virtual void SetAvtive(bool b)
     {
+        material.SetColor(colorHash, Color.white);
         skill = !b;
+    }
+    protected IEnumerator ClearMove()
+    {
+        float fix = 0.5f;
+        Color color;
+        color.a = 1f;
+        while (GameManager.clearDoor.transform.position.x + fix > transform.position.x)
+        {
+            yield return null;
+            vector2 = transform.position;
+            vector2.x += Time.deltaTime * 5f;
+            transform.position = vector2;
+            color.r = Mathf.Min((GameManager.clearDoor.transform.position.x + fix - transform.position.x) / 1.5f, 1f);
+            color.g = color.r;
+            color.b = color.r;
+            material.SetColor(colorHash, color);
+        }
+        gameObject.SetActive(false);
     }
     public void Update0()
     {
+        if (clear) return;
         distance += Mathf.Max(0f, transform.position.x - prePositionX);
         prePositionX = transform.position.x;
-        if (hitStopCount > 0f)
+        if (hitStopCount > 0f && Time.timeScale != 0f)
         {
             hitStopCount -= Time.unscaledDeltaTime;
             if (hitStopCount <= 0f)
@@ -271,7 +297,7 @@ public class PlayerManager : MonoBehaviour
             if(autoClickCount >= autoClickTime)
             {
                 autoClickCount -= autoClickTime;
-                Attack(true);
+                Attack(true, true);
             }
         }
         EvoSkill();
@@ -410,7 +436,7 @@ public class PlayerManager : MonoBehaviour
     //スキル
     public bool Skill(int i)
     {
-        if (skill) return false;
+        if (skill || clear) return false;
         if (coolCounts[i] > 0f) return false;
         if (Time.timeScale <= 0f) return false;
         skill = true;
@@ -449,14 +475,14 @@ public class PlayerManager : MonoBehaviour
         }
     }
     //クリック時
-    public void Attack(bool can)
+    public void Attack(bool can, bool auto)
     {
         skillClick = true;
         if (!can) return;
         if (!GetCanAttack()) return;
         //clickParticle.Play();
         Click();
-        if (guardAcceptable)
+        if ((guardAcceptable && !auto) || (guardAcceptableAuto && auto))
         {
             guard = true;
             animator.SetTrigger(guardHash);
@@ -556,17 +582,25 @@ public class PlayerManager : MonoBehaviour
             if(hash == cancelHash)
             {
                 ResetDamage();
-                skill = false;
-                down = 0f;
+                DownReset();
             }
             else if (hash == idleHash || hash == idleStartHash)
             {
-                skill = false;
-                down = 0f;
+                DownReset();
+            }
+            else if(hash == clearHash)
+            {
+                skill = true;
+                StartCoroutine(ClearMove());
             }
             canAttack = hash == downEndHash || hash == knockHash;
             materialClick = GetCanAttack();
         }
+    }
+    void DownReset()
+    {
+        skill = false;
+        down = 0f;
     }
     //進化スキルクリック受付時間処理
     protected IEnumerator SkillClick(float time, float delay)
@@ -587,7 +621,7 @@ public class PlayerManager : MonoBehaviour
     //ガードとノックバックキャンセル可能取得
     public bool GetCanAttack()
     {
-        return !skill || canAttack;
+        return !(skill || clear) || canAttack ;
     }
     //無敵時間のセット
     IEnumerator Invincible(float time)
@@ -673,10 +707,10 @@ public class PlayerManager : MonoBehaviour
     //スケールスキル処理
     public virtual void LastParticleScaleAdd(float plus)
     {
-        scaleSkillParticle.transform.localScale += Vector3.one * plus;
+        scaleSkillParticle.transform.localScale += plus * (left ? (Vector3)inversionVector2 : Vector3.one);
         vector3 = scaleSkillParticle.transform.localPosition;
-        vector3.x -= 0.21f;
-        vector3.y += 0.08f;
+        vector3.x -= left ? -0.21f : 0.21f;
+        vector3.y += left ? -0.08f : 0.08f;
         scaleSkillParticle.transform.localPosition = vector3;
         scaleSkillParticle2.transform.localScale = scaleSkillParticle.transform.localScale;
     }
@@ -734,6 +768,12 @@ public class PlayerManager : MonoBehaviour
         {
             HitStop(0.45f, 0.15f, true, collider2D.ClosestPoint(transform.position));
             GameManager.popTextManager.SetPopText("回避", this, anotherSpeechBubbleColor, PopTextManager.Kind.Avoidance);
+            StartCoroutine(Invincible(0.6f));
+            condition = Afterimage.Condition.InvinciblePlus;
+            foreach (var afterimage in afterimages)
+            {
+                afterimage.SetCondition(condition, 0.6f);
+            }
             yield break;
         }
         else if (condition == Afterimage.Condition.Invincible || invincible)
@@ -750,10 +790,13 @@ public class PlayerManager : MonoBehaviour
         }
         if (tweenerX == null)
         {
-            guardAcceptable = true;
+            guardAcceptable = true; 
+            guardAcceptableAuto = true;
             guard = false;
         }
         yield return new WaitForSeconds(0.02f);
+        guardAcceptableAuto = false;
+        yield return new WaitForSeconds(0.01f);
         guardAcceptable = false;
         if (guard)
         {
@@ -769,7 +812,7 @@ public class PlayerManager : MonoBehaviour
         {
             var duration = attackCollisionValue.force.y / 12;
             GameManager.cameraManager.ShakeCamera(duration * 2f);
-            ResetForce(true);
+            ResetForce();
             animator.SetTrigger(downHash);
             skill = true;
             foreach (var afterimage in afterimages)
@@ -818,12 +861,12 @@ public class PlayerManager : MonoBehaviour
     void ResetForce(float duration)
     {
         holdout = duration + (holdout - (tweenerX != null ? tweenerX.Elapsed() : 0f)) / 2;
-        ResetForce(false);
+        tweenerX?.Kill();
     }
     //ノックバックダウンの移動の更新
-    void ResetForce(bool resetHold)
+    void ResetForce()
     {
-        if (resetHold) holdout = 0f;
+        holdout = 0f;
         tweenerX?.Kill();
         tweenerY?.Kill();
     }
@@ -873,6 +916,13 @@ public class PlayerManager : MonoBehaviour
     {
         maxhp = maxHp;
         if(hp > 0) hp = maxHp;
+    }
+    //クリア時アニメーション
+    public void ClearAnimation(bool isBool)
+    {
+        Debug.Log("in");
+        animator.SetBool(clearHash, isBool);
+        clear = isBool;
     }
 }
 //アニメーションによる移動

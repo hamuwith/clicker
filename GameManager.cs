@@ -14,6 +14,7 @@ public class GameManager : MonoBehaviour
     public static PlayerManager playerManager;//プレイヤー
     public static PlayerManagerSub playerManagerSub;//プレイヤー
     public static Boss boss;//ボス
+    public static Boss bossSub;//サブボス
     public static AttackCollisionManager attackCollisionManager;//当たり判定プレイヤー用
     public static AttackCollisionManager attackCollisionManagerBoss;//当たり判定ボス用
     public static CameraManager cameraManager;//カメラ
@@ -47,10 +48,13 @@ public class GameManager : MonoBehaviour
     [SerializeField] Transform rightDown;//画面外座標
     [SerializeField] ParticleSystem particleSystemKill;//吹っ飛びエフェクト
     public Transform expPositionTransform;//経験値終点座標
-    public Background[] backgrounds;//背景
+    [SerializeField] BackGroundManager[] backgroundManagers;//背景プレハブ
+    BackGroundManager backgroundManager;//背景
     Label backstep;//バックステップボタン
+    Label guard;//ガードボタン
     Tweener tweener;//ゴールド表示
     [SerializeField] Material transitionMaterial;//倒されたときの視界
+    [SerializeField] Material stageTransitionMaterial;//ステージクリア時のトランジション
     [SerializeField] Material blurMaterial;//倒されたときのブラー
     readonly int transitionProp = Shader.PropertyToID("_progress");
     readonly int blurProp = Shader.PropertyToID("_blur");
@@ -59,6 +63,12 @@ public class GameManager : MonoBehaviour
     readonly float transitionReSpeed = 0.2f;//蘇生時の視界のスピード
     float transitionCount;//倒されたときのトランジションカウント
     [SerializeField] Clear clear;
+    [SerializeField] GameObject clearDoorObject;
+    public static GameObject clearDoor;
+    public static int stage;
+    readonly float transition0 = -0.2f;//トランジションオフセット
+    readonly float transition1 = 1.2f;//トランジションオフセット
+    readonly float transitionStageSpeed = 2f;//倒されたときの視界のスピード
     public int gold 
     { 
         get 
@@ -88,7 +98,7 @@ public class GameManager : MonoBehaviour
     //蘇生トランジション
     public IEnumerator Transition()
     {
-        transitionCount = 1f;
+        transitionCount = transition1;
         blurMaterial.SetInt(isBlurProp, 1);
         yield return TransitionSub(0.7f,transitionSpeed);
         do
@@ -96,13 +106,13 @@ public class GameManager : MonoBehaviour
             yield return TransitionSub(Random.Range(0.2f, 0.3f), transitionReSpeed);
             yield return TransitionSub(Random.Range(0.35f, 0.45f), transitionReSpeed);
         } while (playerManagerSub.skill && playerManagerSub.gameObject.activeSelf);
-        yield return TransitionSub(0f, transitionSpeed);
+        yield return TransitionSub(transition0, transitionSpeed);
         if (!playerManagerSub.gameObject.activeSelf)
         {
             playerManagerSub.gameObject.SetActive(true);
             playerManagerSub.SetAvtive(true);
         }
-        StartCoroutine(Killed());
+        StartCoroutine(ResetStage(false));
         yield return new WaitForSeconds(1f);
         playerManagerSub.Resuscitation();
         do
@@ -110,15 +120,23 @@ public class GameManager : MonoBehaviour
             yield return TransitionSub(Random.Range(0.4f, 0.5f), transitionReSpeed);
             yield return TransitionSub(Random.Range(0.25f, 0.35f), transitionReSpeed);
         } while (playerManager.hp <= 0);
-        yield return TransitionSub(1f, transitionSpeed);
+        yield return TransitionSub(transition1, transitionSpeed);
         blurMaterial.SetInt(isBlurProp, 0);
     }
-    //倒された時
-    IEnumerator Killed()
+    //倒された時、ステージクリアしたとき
+    IEnumerator ResetStage(bool next)
     {
         playerManager.distance = 0f;
         yield return EnemyDestroy(true);
+        if (next)
+        {
+            stage++;
+            Destroy(backgroundManager.gameObject);
+            backgroundManager = Instantiate(backgroundManagers[stage], new Vector3(cameraManager.transform.position.x, 0f, 0f), Quaternion.identity);
+            backgroundManager.Start0(cameraManager.transform);
+        } 
         enemyManager.ClearStage();
+        cameraManager.ResetCamera();
     }
     //敵の削除
     public IEnumerator EnemyDestroy(bool all)
@@ -161,6 +179,7 @@ public class GameManager : MonoBehaviour
             Destroy(gameObject);
             return;
         }
+        stage = 3;
         DontDestroyOnLoad(gameObject);
         gameManager = this;
         SceneManager.sceneLoaded += OnSceneLoaded;
@@ -172,14 +191,16 @@ public class GameManager : MonoBehaviour
         }
         //UIの設定
         List<Label> buttons = uIDocument.rootVisualElement.Query<Label>().ToList();
-        for(int i = 0; i < buttons.Count - 1; i++)
+        for(int i = 0; i < buttons.Count - 2; i++)
         {
             if(i < 5) character.skills[i].skillButton = buttons[i];
             else characterSub.skills[i - 5].skillButton = buttons[i];
             buttons[i].RegisterCallback<MouseDownEvent, int>(ClickEventSkill, i);
         }
-        backstep = buttons[buttons.Count - 1];
+        backstep = buttons[buttons.Count - 2];
         backstep.RegisterCallback<MouseDownEvent>(ClickEventBackStep);
+        guard = buttons[buttons.Count - 1];
+        guard.RegisterCallback<MouseDownEvent>(ClickEventGuard);
         uIDocument.rootVisualElement.RegisterCallback<MouseDownEvent>(ClickEventAttack);
         //ステータス表UIToolkit
         List<Label> labelList = uIDocumentUpgrade.rootVisualElement.Query<Label>().ToList();
@@ -248,7 +269,8 @@ public class GameManager : MonoBehaviour
             characterSub.skills[i].unlockValueLabel.RegisterCallback<MouseDownEvent, Skill>(SkillUnlock, characterSub.skills[i]);
         }
         //初期化
-        transitionMaterial.SetFloat(transitionProp, 1f);
+        transitionMaterial.SetFloat(transitionProp, transition1);
+        stageTransitionMaterial.SetFloat(transitionProp, transition0);
         blurMaterial.SetInt(isBlurProp, 0);
     }
     //カメラの表示範囲かどうか
@@ -443,8 +465,8 @@ public class GameManager : MonoBehaviour
     //画面クリック時通常攻撃
     void ClickEventAttack(MouseDownEvent mouseDownEvent)
     {
-        if (mouseDownEvent.pressedButtons % 2 == 1) playerManager.Attack(!skillPlayer && !skillPlayerSub);
-        if (mouseDownEvent.pressedButtons / 2 == 1) playerManagerSub.Attack(!skillPlayerSub && !skillPlayer);
+        if (mouseDownEvent.pressedButtons % 2 == 1) playerManager.Attack(!skillPlayer && !skillPlayerSub, false);
+        if (mouseDownEvent.pressedButtons / 2 == 1) playerManagerSub.Attack(!skillPlayerSub && !skillPlayer, false);
         skillPlayer = false;
         skillPlayerSub = false;
     }
@@ -452,7 +474,12 @@ public class GameManager : MonoBehaviour
     void ClickEventBackStep(MouseDownEvent mouseDownEvent)
     {
         playerManager.BackStep();
-    }    
+    }   
+    //ガードボタンの処理
+    void ClickEventGuard(MouseDownEvent mouseDownEvent)
+    {
+        playerManager.BackStep();
+    }
     //プレイヤーのスキルIDからスキルボタンのIDに変更
     void ChangeNumIn(ref int i, PlayerManager playerManager)
     {
@@ -552,15 +579,58 @@ public class GameManager : MonoBehaviour
         playerManager?.Update0();
         if(playerManagerSub != null && playerManagerSub.gameObject.activeSelf) playerManagerSub.Update0();
         cameraManager?.Update0();
-        enemyManager?.Update0(); 
-        foreach (var background in backgrounds)
-        {
-            background.Update0();
-        }
+        enemyManager?.Update0();
+        backgroundManager?.Update0();
     }
+    //ステージクリア
     public void Clear()
     {
-        clear.gameObject.SetActive(true);
+        if(stage > backgroundManagers.Length - 2)
+        {
+            clear.gameObject.SetActive(true);
+            return;
+        }
+        clearDoor = Instantiate(clearDoorObject, new Vector3(playerManager.transform.position.x + 16f, -5.5f, 0f), Quaternion.identity);
+        clearDoor.GetComponent<SpriteRenderer>().DOFade(1f, 1f);
+        Clear(true);
+        StartCoroutine(StageTransition(playerManagerSub.gameObject.activeSelf));
+    }
+    //ステージクリアトランジション
+    public IEnumerator StageTransition(bool subUnlock)
+    {
+        while (playerManager.gameObject.activeSelf || playerManagerSub.gameObject.activeSelf)
+        {
+            yield return null;
+        }
+        transitionCount = transition0;
+        while (transitionCount <= transition1)
+        {
+            yield return null;
+            transitionCount += Time.deltaTime * transitionStageSpeed;
+            stageTransitionMaterial.SetFloat(transitionProp, transitionCount);
+        }
+        yield return ResetStage(true);
+        playerManager.gameObject.SetActive(true);
+        playerManager.SetAvtive(true);
+        if (subUnlock)
+        {
+            playerManagerSub.gameObject.SetActive(true);
+            playerManagerSub.SetAvtive(true);
+        }
+        Clear(false);
+        while (transitionCount >= transition0)
+        {
+            yield return null;
+            transitionCount -= Time.deltaTime * transitionStageSpeed;
+            stageTransitionMaterial.SetFloat(transitionProp, transitionCount);
+        }
+    }
+    //クリア処理
+    void Clear(bool isBool)
+    {
+        playerManager.ClearAnimation(isBool);
+        playerManagerSub.ClearAnimation(isBool);
+        CameraManager.clear = isBool;
     }
     //シーン読み込み時
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -577,10 +647,8 @@ public class GameManager : MonoBehaviour
         enemyManager.Start0();
         damageManager = FindAnyObjectByType<DamageManager>();
         damageManager.Start0();
-        foreach (var background in backgrounds)
-        {
-            background.Start0(cameraManager.transform);
-        }
+        backgroundManager = Instantiate(backgroundManagers[stage]);
+        backgroundManager.Start0(cameraManager.transform);
         expManagers = new ExpManager[2];
         expManagers[0] = GameObject.Find("ExpManager").GetComponent<ExpManager>();
         expManagers[1] = GameObject.Find("ExpManager1").GetComponent<ExpManager>();

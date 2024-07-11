@@ -20,7 +20,7 @@ public class Boss1 : Boss
     {
         if (skillId == 3)
         {
-            StartCoroutine(Special3(right));
+            StartCoroutine(Special3(right ^ inversion));
         }
     }
     IEnumerator Special3(bool right0)
@@ -30,7 +30,7 @@ public class Boss1 : Boss
         {
             (float left, float right) = GameManager.gameManager.LeftRight();
             (float top, float down) = GameManager.gameManager.TopDown();
-            vector2.x = this.right ? right + 6f : left - 6f;
+            vector2.x = right0 ? right + 6f : left - 6f;
             vector2.y = Random.Range(top, down + 6f);
             particleSystemSpecial4.transform.position = vector2;
             particleSystemSpecial4.transform.localScale = right0 ? Vector2.one : inversionVector2;

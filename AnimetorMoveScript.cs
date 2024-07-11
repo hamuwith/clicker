@@ -8,7 +8,7 @@ public class AnimetorMoveScript : StateMachineBehaviour
     [SerializeField] AnimatorMove[] animatorMovesY;//Y軸への移動
     [SerializeField] protected AttackCollisionValue[] attackCollisions;//アニメーションの当たり判定
     [SerializeField] bool cameraMove;//移動に対してカメラの固定するか
-    [SerializeField] bool sub;//サブプレイヤーか
+    [SerializeField] protected bool sub;//サブプレイヤーか
     protected Tweener tweenerMoveX;//アニメーションキャンセル時キルするため
     protected Tweener tweenerMoveY;//アニメーションキャンセル時キルするため
     protected int x;//X移動インデックス用
@@ -22,6 +22,7 @@ public class AnimetorMoveScript : StateMachineBehaviour
     protected Vector2 vector2;//一時
     [SerializeField] SpeechBubble[] speechBubbles;//吹き出しの設定
     [SerializeField] SpeechBubbleEvo[] speechBubbleEvos;//進化スキル時の吹き出しの設定
+    [SerializeField] protected bool autoAttack;
     new public void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
 	{
         PlayerManager playerManager = sub ? GameManager.playerManagerSub : GameManager.playerManager;
@@ -118,7 +119,9 @@ public class AnimetorMoveScript : StateMachineBehaviour
         //X移動
         if (animatorMovesX[x].move != 0f || animatorMovesX[x].relative)
         {
-            float movex = (animatorMovesX[x].relative ? GameManager.playerManager.transform.position.x : transform.position.x) + animatorMovesX[x].move * (changeSide ? -1 : 1);
+            float rate = 1f;
+            if (autoAttack && GameManager.boss != null && Mathf.Abs(transform.position.x - GameManager.boss.transform.position.x) < 4f) rate = 0.1f;
+            float movex = (animatorMovesX[x].relative ? GameManager.playerManager.transform.position.x : transform.position.x) + animatorMovesX[x].move * (changeSide ? -rate : rate);            
             tweenerMoveX = transform.DOMoveX(movex, animatorMovesX[x].duration)
                 .SetDelay(animatorMovesX[x].delay)
                 .OnComplete(() =>
@@ -133,20 +136,17 @@ public class AnimetorMoveScript : StateMachineBehaviour
     protected void MoveY(Transform transform)
     {
         if (animatorMovesY.Length <= y) return;
-        if (animatorMovesY[y].move != 0f || animatorMovesY[y].relative)
-        {
-            //Y移動、X移動と同じ
-            float movey = (animatorMovesY[y].relative ? GameManager.playerManager.transform.position.y : transform.position.y) + animatorMovesY[y].move;
-            tweenerMoveY = transform.DOMoveY(movey, animatorMovesY[y].duration)
-                .SetDelay(animatorMovesY[y].delay)
-                .OnComplete(() =>
-                {
-                    y++;
-                    MoveY(transform);
-                })
-                .SetLoops(animatorMovesY[y].yoyo ? 2 : 1, LoopType.Yoyo)
-                .SetEase(animatorMovesY[y].ease);
-        }
+        //Y移動、X移動と同じ
+        float movey = (animatorMovesY[y].relative ? GameManager.playerManager.transform.position.y : -5.5f) + animatorMovesY[y].move;
+        tweenerMoveY = transform.DOMoveY(movey, animatorMovesY[y].duration)
+            .SetDelay(animatorMovesY[y].delay)
+            .OnComplete(() =>
+            {
+                y++;
+                MoveY(transform);
+            })
+            .SetLoops(animatorMovesY[y].yoyo ? 2 : 1, LoopType.Yoyo)
+            .SetEase(animatorMovesY[y].ease);
     }
 }
 [System.Serializable]

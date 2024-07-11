@@ -5,8 +5,11 @@ public class CameraManager : MonoBehaviour
 {
     Vector3 vector3;//一時利用
     public static bool fix;//カメラ固定中
+    public static bool clear;//クリアカメラ固定中
+     static BossName bossNameObj;//実ボスの名前表示
     bool zoomTarget;//ズーム中
     readonly float offset = 8.35f;//プレイヤー表示位置オフセット
+    readonly float offsetClear = 12f;//クリアオブジェクトオフセット
     readonly float smooth = 15f;//切替位置
     readonly float smoothTrans = 14.99f;//切替ポイント
     readonly float zoomTime = 1.5f;//ズーム維持時間
@@ -79,11 +82,12 @@ public class CameraManager : MonoBehaviour
     }
     public void CreateBossName(Transform _transform, in string name, in Color color)
     {
-        Instantiate(bossName, new Vector3(_transform.position.x, bossNameY, 0f), Quaternion.identity).SetText(name, color);
+        bossNameObj = Instantiate(bossName, new Vector3(_transform.position.x, bossNameY, 0f), Quaternion.identity);
+        bossNameObj.SetText(name, color);
     }
     public void Update0()
     {
-        if (fix || zoomTarget) return;
+        if (fix || zoomTarget || (clear && transform.position.x + offsetClear > GameManager.clearDoor.transform.position.x)) return;
         if (GameManager.playerManager.left)
         {
             if (GameManager.playerManager.transform.position.x - transform.position.x > smooth)
@@ -110,5 +114,13 @@ public class CameraManager : MonoBehaviour
         }
         vector3.y = transform.position.y;
         transform.position = vector3;
+    }
+    public void ResetCamera()
+    {
+        vector3.x = GameManager.playerManager.transform.position.x + offset;
+        vector3.y = transform.position.y;
+        transform.position = vector3;
+        Destroy(bossNameObj.gameObject);
+        bossNameObj = null;
     }
 }

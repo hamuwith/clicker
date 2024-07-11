@@ -4,7 +4,7 @@ using System;
 
 public class EnemyManager : MonoBehaviour
 {
-    [SerializeField] EnemySet[] enemySets;//ステージの敵の情報
+    [SerializeField] StageEnemySet[] stageEnemySets;//ステージの敵の情報
     List<Enemy> enemies;//敵リスト
     float time;//敵追加時間カウント
     public bool stopSpown;//ボス時スポンの停止
@@ -14,6 +14,7 @@ public class EnemyManager : MonoBehaviour
     Action<float> onGroupSpawn;//グループスポン
     int groupNum;//グループで生成される敵
     int groupCount;//グループで生成される敵のカウント
+    bool boss;
     //初期化
     public void Start0()
     {
@@ -28,7 +29,7 @@ public class EnemyManager : MonoBehaviour
             time += Time.deltaTime;
             if (time >= enemySpawn)
             {
-                foreach(var enemySet in enemySets)
+                foreach(var enemySet in stageEnemySets[GameManager.stage].enemySets)
                 {
                     if(enemySet.distance <= GameManager.playerManager.distance && enemySet.count < enemySet.num)
                     {
@@ -37,7 +38,7 @@ public class EnemyManager : MonoBehaviour
                         if (enemies[enemies.Count - 1].groupSize > 0f) groupNum = enemySet.num;
                         else time = 0f;
                         enemies[enemies.Count - 1].Start0(spawnPosition, deathPosition);
-                        if (enemySet.boss) stopSpown = true;
+                        if (enemySet.boss) boss = true;
                         break;
                     }
                 }
@@ -65,18 +66,50 @@ public class EnemyManager : MonoBehaviour
     //敵の削除
     public bool DestroyEnemy(bool all)
     {
-        if (enemies.Count <= 0) return false;
         if (all)
         {
+            if (enemies.Count <= 0) return false;
             Destroy(enemies[enemies.Count - 1].gameObject);
             enemies.RemoveAt(enemies.Count - 1);
+            GameManager.boss = null;
+            GameManager.bossSub = null;
             return enemies.Count > 0;
         }
         else
         {
-            Destroy(enemies[enemies.Count - 2].gameObject);
-            enemies.RemoveAt(enemies.Count - 2);
-            return enemies.Count > 1;
+            if (enemies.Count <= 0) return false;
+            int num = 1;
+            while (true)
+            {
+                if (enemies[enemies.Count - num] == GameManager.boss || GameManager.bossSub)
+                {
+                    num++;
+                    if (enemies.Count < num) return false;
+                }
+                else
+                {
+                    Destroy(enemies[enemies.Count - num].gameObject);
+                    enemies.RemoveAt(enemies.Count - num);
+                    return enemies.Count - num + 1 > 0;
+                }
+            }            
+        }
+    }
+    //クリア判定
+    public void BossDeath(Boss boss)
+    {
+        if(GameManager.boss == boss)
+        {
+            GameManager.boss = null;
+        }
+        else if (GameManager.bossSub == boss)
+        {
+            GameManager.bossSub = null;
+        }
+        if(GameManager.boss == null && GameManager.bossSub == null )
+        {
+            if (this.boss) GameManager.gameManager.Clear();
+            else stopSpown = false;
         }
     }
     //プレイヤーが倒されたとき、初めから
@@ -85,12 +118,18 @@ public class EnemyManager : MonoBehaviour
         if (enemies.Count <= 0)
         {
             //ステージ初期化処理
-            foreach (var enemySet in enemySets)
+            foreach (var enemySet in stageEnemySets[GameManager.stage].enemySets)
             {
                 enemySet.count = 0;
             }
             stopSpown = false;
+            boss = false;
         }
+    }
+    [System.Serializable]
+    public class StageEnemySet
+    {
+        public EnemySet[] enemySets;//ステージの敵の情報
     }
     [System.Serializable]
     public class EnemySet

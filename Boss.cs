@@ -11,7 +11,7 @@ public class Boss : Enemy
     readonly int distanceHash = Animator.StringToHash("distance");
     readonly int hprateHash = Animator.StringToHash("hprate");
     [SerializeField] protected ParticleSystemSkill[] particleSystemSkills;//スキルのエフェクト設定
-    [SerializeField] Afterimage[] AfterimageObjects;//残像のゲームオブジェクト
+    [SerializeField] protected Afterimage[] AfterimageObjects;//残像のゲームオブジェクト
     [SerializeField] protected ParticleSystem particleSystemSpecial4;//特殊エフェクト
     [SerializeField] protected AttackCollisionValue AttackCollisionValueSpecial4;//特殊当たり判定
     [SerializeField] string name;//ボスの名前
@@ -36,10 +36,11 @@ public class Boss : Enemy
         }
         return true;
     }
-    //クリア
+    //ボスが死んだとき
     protected override void Death()
     {
-        GameManager.gameManager.Clear();
+        ResetForce(true);
+        GameManager.enemyManager.BossDeath(this);
     }
     //ダメージによるアニメーションのブレンド用
     protected override void SetDamage()
@@ -73,13 +74,20 @@ public class Boss : Enemy
     {
         base.ReMove();
         condition = Afterimage.Condition.ArmorPlus;
-        if (enumerator != null) StopCoroutine(enumerator);
+        StopEnumerator();
         enumerator = Armor(armorTime);
         StartCoroutine(enumerator);
         foreach (var afterimage in afterimages)
         {
             afterimage.SetCondition(condition, armorTime);
         }
+    }
+    void StopEnumerator()
+    {
+        if (enumerator == null) return;
+        StopCoroutine(enumerator);
+        armorbool = false;
+        invincible = false;
     }
     //攻撃処理
     public override void Attack(int currectAnime)
@@ -113,15 +121,20 @@ public class Boss : Enemy
     public override void Start0(Transform spawnTransform, Transform deathPosition)
     {
         base.Start0(spawnTransform, deathPosition);
-        GameManager.boss = this;
         //残像のセット
         afterimages = new Afterimage[AfterimageObjects.Length];
-        StartCoroutine(AfterimageInit());
-        transform.position += Vector3.right * 20f;
         animator.SetTrigger("first");
+        StartSub();
+    }
+    protected virtual void StartSub()
+    {
+        StartCoroutine(AfterimageInit(true));
+        transform.position += Vector3.right * 20f;
+        GameManager.boss = this;
+        GameManager.enemyManager.stopSpown = true;
         GameManager.cameraManager.Zoom(transform);
     }
-    IEnumerator AfterimageInit()
+    protected IEnumerator AfterimageInit(bool boss)
     {
         afterimages[0] = Instantiate(AfterimageObjects[0]);
         afterimages[0].Init(this);
@@ -131,6 +144,7 @@ public class Boss : Enemy
         yield return null;
         afterimages[2] = Instantiate(AfterimageObjects[2]);
         afterimages[2].Init(this);
+        if (!boss) yield break;
         yield return null;
         GameManager.cameraManager.CreateWarning();
         yield return null;
@@ -153,25 +167,27 @@ public class Boss : Enemy
         enumerator = null;
     }
     //アニメーション開始時
-    public void AnimationStart(int hash, int skillId, float cooltime, Afterimage.Condition condition, float invincibleTime, Animator animator,float cycleOffset)
+    public virtual void AnimationStart(int hash, int skillId, float cooltime, Afterimage.Condition condition, float invincibleTime, Animator animator,float cycleOffset)
     {
         if (this.animator == animator)
         {
             if (skillId >= 0 && skillId < skillSets.Length)
             {
+                //スキル発動前にボスの向きをセット
+                SetRight(0f);
                 skillSets[skillId].coolCount = cooltime; //クールタイムのセット
                 ParticlePlaySkill(skillId, cycleOffset);//エフェクトのセット
             }
             //無敵時間指定なら
             if (condition == Afterimage.Condition.InvinciblePlus)
             {
-                if (enumerator != null) StopCoroutine(enumerator);
+                StopEnumerator();
                 enumerator = Invincible(invincibleTime);
                 StartCoroutine(enumerator);
             }
             else if (condition == Afterimage.Condition.ArmorPlus)
             {
-                if (enumerator != null) StopCoroutine(enumerator);
+                StopEnumerator();
                 enumerator = Armor(invincibleTime);
                 StartCoroutine(enumerator);
             }
@@ -221,12 +237,13 @@ public class Boss : Enemy
     protected virtual IEnumerator SkillParticlePlay(ParticleDelay particleDelay, int num, float cycleOffset)
     {
         yield return new WaitForSeconds(particleDelay.delay - cycleOffset);
-        if (!particleDelay.dependence) particleDelay.particleSystem.transform.localScale = right? Vector2.one : inversionVector2;
+        if (!particleDelay.dependence) particleDelay.particleSystem.transform.localScale = right ^ inversion? Vector2.one : inversionVector2;
         particleDelay.particleSystem.Play();
         Special(num);
+        particleDelay.enumerator = null;
     }
     //スキルエフェクトの停止
-    public void ParticlesStopSkill(int num)
+    public virtual void ParticlesStopSkill(int num)
     {
         if (num < 0 || particleSystemSkills.Length <= num) return;
         foreach (var particleSystem in particleSystemSkills[num].particleDelays)
@@ -238,11 +255,11 @@ public class Boss : Enemy
     protected override void OnDestroy()
     {
         base.OnDestroy();
-        GameManager.boss = null; 
         foreach(var afterimage in afterimages)
         {
             Destroy(afterimage?.gameObject);
         }
+        afterimages = new Afterimage[AfterimageObjects.Length];
     }
     [System.Serializable]
     class SkillSet 

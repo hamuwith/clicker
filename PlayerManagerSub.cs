@@ -5,7 +5,6 @@ using System.Collections;
 public class PlayerManagerSub : PlayerManager
 {
     [SerializeField] ParticleSystem fireEnd;//通常攻撃のエンドエフェクト
-    [SerializeField] Material material;//スプライトのマテリアル
     [SerializeField] Ice ice;//アイススキル
     [SerializeField] Poison poison;//毒スキル
     public ParticleSystem resuscitationParticle;//蘇生エフェクト
@@ -52,9 +51,9 @@ public class PlayerManagerSub : PlayerManager
     //進化スケールスキルスケール処理
     public override void LastParticleScaleAdd(float plus)
     {
-        scaleSkillParticle.transform.localScale += Vector3.one * plus;
+        scaleSkillParticle.transform.localScale += plus * (left ? (Vector3)inversionVector2 : Vector3.one);
         var velocityOverLifetime = scaleSkillParticle.velocityOverLifetime;
-        velocityOverLifetime.speedModifierMultiplier = 1f / scaleSkillParticle.transform.localScale.x;
+        velocityOverLifetime.speedModifierMultiplier = 1f / scaleSkillParticle.transform.localScale.y;
     }
     //通常攻撃エフェクト位置
     protected override void SlashParticlePlay(int num)
@@ -244,6 +243,11 @@ public class PlayerManagerSub : PlayerManager
         if (hash == idleHash)
         {
             skill = false;
+        }
+        else if (hash == clearHash)
+        {
+            skill = true;
+            StartCoroutine(ClearMove());
         }
         materialClick = GetCanAttack();
     }

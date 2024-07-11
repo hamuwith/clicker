@@ -47,7 +47,7 @@ public class AttackCollision : MonoBehaviour
         this.attackCollisionValue = attackCollisionValue;
         this.singleHit = singleHit;
         int side = attackCollisionValue.left ? -1 : 1;
-        if (attackCollisionValue.relative) position = GameManager.boss.transform.position;
+        if (attackCollisionValue.relative) position = attackCollisionValue.sub ? GameManager.bossSub.transform.position : GameManager.boss.transform.position;
         tweener = DOTween.To(() => 0f, (x) =>
         {
             //“–‚½‚è”»’è‚ÌˆÚ“®
@@ -57,7 +57,9 @@ public class AttackCollision : MonoBehaviour
             vector2side.y = position.y + attackCollisionValue.position.y + attackCollisionValue.velocity.y * x + vector2.y * x / 2;
             transform.position = vector2side;
             capsuleCollider2.size = attackCollisionValue.size + attackCollisionValue.expantion * x;
-            capsuleCollider2.offset = attackCollisionValue.offset;
+            vector2 = attackCollisionValue.offset;
+            if (attackCollisionValue.left) vector2.x = -vector2.x;
+            capsuleCollider2.offset = vector2;
             transform.localEulerAngles = Vector3.forward * (attackCollisionValue.rotation + attackCollisionValue.rotationVelocity * x) * side;
         }, 1f, attackCollisionValue.duration)
             .OnStart(() =>

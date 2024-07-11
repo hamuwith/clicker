@@ -141,7 +141,7 @@ public class Enemy : MonoBehaviour
         ResetForce(false);
     }
     //ダウン時ノックバックタイムのクリア
-    void ResetForce(bool resetHold)
+    protected void ResetForce(bool resetHold)
     {
         if (resetHold) holdout = 0f;
         tweenerX?.Kill();
@@ -159,9 +159,12 @@ public class Enemy : MonoBehaviour
     }
     IEnumerator ParticlePlay(ParticleDelay particleDelay)
     {
+        Debug.Log(particleDelay.delay);
         yield return new WaitForSeconds(particleDelay.delay);
+        if (!particleDelay.dependence) particleDelay.particleSystem.transform.localScale = right ^ inversion ? Vector2.one : inversionVector2;
         particleDelay.particleSystem.Play();
         particleDelay.enumerator = null;
+        Debug.Log("in2");
     }
     //エフェクトの停止
     public void AttackParticlesStop()
@@ -174,7 +177,7 @@ public class Enemy : MonoBehaviour
         return false;
     }
     public void Damage(AttackCollisionValue attackCollisionValue, float rightRate,  Collider2D collision)
-    {
+    {        
         //残像表示時、視覚でわかるように残像の拡大
         if (condition != Afterimage.Condition.Null || invincible || armorbool)
         {
@@ -239,6 +242,7 @@ public class Enemy : MonoBehaviour
             //吹っ飛び
             Kill(damage, playerManager, collision);
         }
+        Debug.Log(holdout);
     }
     void Kill(float damage, PlayerManager playerManager, Collider2D collider2D)
     {
@@ -337,7 +341,7 @@ public class Enemy : MonoBehaviour
     void Knockback(float rightRate, PlayerManager playerManager)
     {
         float forceX = Mathf.Abs(attackCollisionValue.force.x) - knockResist;
-        var duration = forceX > 0f ? (forceX + attackCollisionValue.force.y / attackCollisionValue.force.x * forceX) /** forceRate*/ / 24 : 0f;
+        var duration = forceX > 0f ? (forceX + attackCollisionValue.force.y / attackCollisionValue.force.x * forceX) /** forceRate*/ / 40 : 0f;
         if (duration <= 0f) return;
         ResetForce(duration);
         vector3 = transform.position + attackCollisionValue.force /** forceRate*/ / 5 * (attackCollisionValue.suction ? rightRate : 1) * (!playerManager.left ? 1 : -1);
@@ -358,6 +362,7 @@ public class Enemy : MonoBehaviour
     //リスポン
     protected virtual void Death()
     {
+        ResetForce(true);
         if (GameManager.enemyManager.stopSpown)
         {
             gameObject.SetActive(false);
@@ -393,6 +398,7 @@ public class Enemy : MonoBehaviour
     //初期化
     public virtual void Start0(Transform spawnTransform, Transform deathPosition)
     {
+        Debug.Log("in2");
         death = true;
         scale = transform.localScale.x;
         effectCounts = new float[(int)AttackCollisionValue.Effect.Length - 1];
@@ -447,7 +453,7 @@ public class Enemy : MonoBehaviour
     {
         if (death) return;
         int currectAnime = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
-        if (GameManager.boss != this)
+        if (GameManager.boss != this && GameManager.bossSub != this)
         {
             (float _left, float _right) = GameManager.gameManager.LeftRight();
             (float top, float down) = GameManager.gameManager.TopDown();
@@ -467,7 +473,7 @@ public class Enemy : MonoBehaviour
                 }
             } 
         }
-        if (!throwPlayer && (currectAnime == standupHash || currectAnime == knockHash))
+        if ((!throwPlayer && (currectAnime == moveHash || currectAnime == idleHash)) || (throwPlayer && (currectAnime == standupHash || currectAnime == knockHash)))
         {
             //振りむきのセット
             SetRight(1f);
