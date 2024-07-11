@@ -69,6 +69,7 @@ public class GameManager : MonoBehaviour
     readonly float transition0 = -0.2f;//トランジションオフセット
     readonly float transition1 = 1.2f;//トランジションオフセット
     readonly float transitionStageSpeed = 2f;//倒されたときの視界のスピード
+    bool leftguard;
     public int gold 
     { 
         get 
@@ -200,7 +201,8 @@ public class GameManager : MonoBehaviour
         backstep = buttons[buttons.Count - 2];
         backstep.RegisterCallback<MouseDownEvent>(ClickEventBackStep);
         guard = buttons[buttons.Count - 1];
-        guard.RegisterCallback<MouseDownEvent>(ClickEventGuard);
+        guard.RegisterCallback<MouseDownEvent>(ClickEventGuardDown);
+        uIDocument.rootVisualElement.RegisterCallback<MouseUpEvent>(ClickEventGuardUp);
         uIDocument.rootVisualElement.RegisterCallback<MouseDownEvent>(ClickEventAttack);
         //ステータス表UIToolkit
         List<Label> labelList = uIDocumentUpgrade.rootVisualElement.Query<Label>().ToList();
@@ -465,8 +467,8 @@ public class GameManager : MonoBehaviour
     //画面クリック時通常攻撃
     void ClickEventAttack(MouseDownEvent mouseDownEvent)
     {
-        if (mouseDownEvent.pressedButtons % 2 == 1) playerManager.Attack(!skillPlayer && !skillPlayerSub, false);
-        if (mouseDownEvent.pressedButtons / 2 == 1) playerManagerSub.Attack(!skillPlayerSub && !skillPlayer, false);
+        if (mouseDownEvent.button == 0) playerManager.Attack(!skillPlayer && !skillPlayerSub, false);
+        else if (mouseDownEvent.button == 1) playerManagerSub.Attack(!skillPlayerSub && !skillPlayer, false);
         skillPlayer = false;
         skillPlayerSub = false;
     }
@@ -475,10 +477,15 @@ public class GameManager : MonoBehaviour
     {
         playerManager.BackStep();
     }   
-    //ガードボタンの処理
-    void ClickEventGuard(MouseDownEvent mouseDownEvent)
+    //ガードボタンの処理in
+    void ClickEventGuardDown(MouseDownEvent mouseDownEvent)
     {
-        playerManager.BackStep();
+        if (mouseDownEvent.button == 0) skillPlayer = playerManager.Guard();
+    }
+    //ガードボタンの処理out
+    void ClickEventGuardUp(MouseUpEvent mouseUpEvent)
+    {
+        if (mouseUpEvent.button == 0) playerManager.GuardEnd(true);
     }
     //プレイヤーのスキルIDからスキルボタンのIDに変更
     void ChangeNumIn(ref int i, PlayerManager playerManager)

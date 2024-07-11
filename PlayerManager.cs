@@ -12,7 +12,8 @@ public class PlayerManager : MonoBehaviour
     [SerializeField] ParticleSystem slashSkillParticle3;//通常攻撃スキルエフェクト3
     [SerializeField] protected ParticleSystem slashSkillParticleBuff;//通常攻撃スキル発動中エフェクト
     [SerializeField] protected ParticleSystemSkill[] particleSystemSkills;//スキルエフェクト
-    [SerializeField] ParticleSystem guardParticle;//ガードエフェクト
+    [SerializeField] ParticleSystem guardParticle;//ジャストガードエフェクト
+    [SerializeField] AttackCollisionValue attackCollisionValueGuard;//ジャストガードダメージ
     [SerializeField] protected Material material;//スプライトのマテリアル
     protected Vector2 vector2;//一時利用
     public readonly int attackHash = Animator.StringToHash("attack");
@@ -27,11 +28,12 @@ public class PlayerManager : MonoBehaviour
     public readonly int idleHash = Animator.StringToHash("idle");
     public readonly int idleStartHash = Animator.StringToHash("idleStart");
     public readonly int cancelHash = Animator.StringToHash("cancel");
-    public readonly int guardHash = Animator.StringToHash("guard");
+    //public readonly int guardHash = Animator.StringToHash("guard");
     public readonly int resuscitationHash = Animator.StringToHash("resuscitation");
     public readonly int castHash = Animator.StringToHash("cast");
     public readonly int deathHash = Animator.StringToHash("death");
     public readonly int clearHash = Animator.StringToHash("clear");
+    public readonly int guard0Hash = Animator.StringToHash("guard0");
     float hitStopCount;//ヒットストップ時間カウント
     protected float atkBuffTime;//通常攻撃バフ時間
     protected float atkBuff;//通常攻撃バフ時間カウント
@@ -45,6 +47,7 @@ public class PlayerManager : MonoBehaviour
     float down;//ダウン値
     Tweener tweenerX;//ダウンとノックバック
     Tweener tweenerY;//ダウンとノックバック
+    Action action;//ガードエンドアクション
     float holdout0;//ノックバック時間
     float holdout
     {
@@ -61,7 +64,7 @@ public class PlayerManager : MonoBehaviour
             else
             {
                 holdout0 = value;
-                if (holdout0 > 0f)
+                if (holdout0 > 0f && !guard0)
                 {
                     animator.SetTrigger(knockHash);
                     foreach (var afterimage in afterimages)
@@ -74,10 +77,22 @@ public class PlayerManager : MonoBehaviour
     }
     protected Vector3 vector3;//一時利用
     Afterimage.Condition condition;//状態
-    public bool skill { get; protected set; }//スキル可能かどうか
-    bool guard;//ガード成功
-    bool guardAcceptable;//ガード可能かどうか
-    bool guardAcceptableAuto;//自動ガード可能かどうか
+    bool skill0;
+    public bool skill
+    { 
+        get 
+        {
+            return skill0;
+        } 
+        protected set
+        {
+            skill0 = value;
+            if(skill0) GuardEnd(false);
+        } 
+    }//スキル可能かどうか
+    //bool guard;//ガード成功
+    //bool guardAcceptable;//ガード可能かどうか
+    //bool guardAcceptableAuto;//自動ガード可能かどうか
     bool invincible;//無敵かどうか
     bool avoidance;//回避かどうか
     protected float[] coolCounts;//クールタイムカウント
@@ -187,6 +202,8 @@ public class PlayerManager : MonoBehaviour
     }
     bool canSkillClick;//進化スキルクリック可能か
     Tweener tweener;//マウスクリック表示エフェクト
+    bool guard0;
+    bool justguard;
     public enum State
     {
         ATTACK,
@@ -466,6 +483,46 @@ public class PlayerManager : MonoBehaviour
         }
         return true;
     }
+    //ガード
+    public bool Guard()
+    {
+        if (skill || clear || guard0) return false;
+        if (Time.timeScale <= 0f) return false;
+        guard0 = true;
+        StartCoroutine(JustGuard(0.05f));
+        animator.SetBool(guard0Hash, true);
+        foreach (var afterimage in afterimages)
+        {
+            afterimage.SetBool(guard0Hash, true);
+        }
+        return true;
+    }
+    //ガードエンド
+    public void GuardEnd(bool mouseUp)
+    {
+        if (!guard0) return;
+        if (tweenerX == null)
+        {
+            guard0 = false;
+            animator.SetBool(guard0Hash, false);
+            foreach (var afterimage in afterimages)
+            {
+                afterimage.SetBool(guard0Hash, false);
+            }
+        }
+        else if(mouseUp)
+        {
+            action = () =>
+            {
+                guard0 = false;
+                animator.SetBool(guard0Hash, false);
+                foreach (var afterimage in afterimages)
+                {
+                    afterimage.SetBool(guard0Hash, false);
+                }
+            };
+        }
+    }
     //進化スキル
     protected virtual void EvoSkill(ref int i)
     {
@@ -482,24 +539,24 @@ public class PlayerManager : MonoBehaviour
         if (!GetCanAttack()) return;
         //clickParticle.Play();
         Click();
-        if ((guardAcceptable && !auto) || (guardAcceptableAuto && auto))
+        //if ((guardAcceptable && !auto) || (guardAcceptableAuto && auto))
+        //{
+        //    guard = true;
+        //    animator.SetTrigger(guardHash);
+        //    foreach (var afterimage in afterimages)
+        //    {
+        //        afterimage.SetTrigger(guardHash);
+        //    }
+        //}
+        //else
+        //{
+        GameManager.tutorialManager?.SetActive(tutorialId, false);
+        animator.SetTrigger(attackHash);
+        foreach (var afterimage in afterimages)
         {
-            guard = true;
-            animator.SetTrigger(guardHash);
-            foreach (var afterimage in afterimages)
-            {
-                afterimage.SetTrigger(guardHash);
-            }
+            afterimage.SetTrigger(attackHash);
         }
-        else
-        {
-            GameManager.tutorialManager?.SetActive(tutorialId, false);
-            animator.SetTrigger(attackHash);
-            foreach (var afterimage in afterimages)
-            {
-                afterimage.SetTrigger(attackHash);
-            }
-        }
+        //}
     }
     //クリックエフェクト
     void Click()
@@ -621,7 +678,7 @@ public class PlayerManager : MonoBehaviour
     //ガードとノックバックキャンセル可能取得
     public bool GetCanAttack()
     {
-        return !(skill || clear) || canAttack ;
+        return !(skill || clear || guard0) || canAttack ;
     }
     //無敵時間のセット
     IEnumerator Invincible(float time)
@@ -636,6 +693,13 @@ public class PlayerManager : MonoBehaviour
         avoidance = true;
         yield return Invincible(time);
         avoidance = false;
+    } 
+    //ジャストガード時間のセット
+    IEnumerator JustGuard(float time)
+    {
+        justguard = true;
+        yield return new WaitForSeconds(time);
+        justguard = false;
     }
     //通常攻撃エフェクト位置(アニメーションより使用)
     protected virtual void SlashParticlePlay(int num)
@@ -665,10 +729,10 @@ public class PlayerManager : MonoBehaviour
         if (num == 3) slashSkillParticle3.Play();
     }
     //アニメーションより使用
-    void GuardParticlePlay()
-    {
-        guardParticle.Play();
-    }
+    //void GuardParticlePlay()
+    //{
+    //    guardParticle.Play();
+    //}
     //スキルエフェクト
     public void ParticlePlaySkill(int num)
     {
@@ -752,10 +816,10 @@ public class PlayerManager : MonoBehaviour
     {
         if (!collision.CompareTag("EnemyWeapon")) return;
         (AttackCollisionValue attackCollisionValue0, _)  = collision.gameObject.GetComponent<AttackCollision>().GetAttackCollisionValue();
-        StartCoroutine(Damage(attackCollisionValue0, collision));
+        Damage(attackCollisionValue0, collision);
     }
     //ダメージを受けたときの処理
-    public IEnumerator Damage(AttackCollisionValue attackCollisionValue, Collider2D collider2D)
+    public void Damage(AttackCollisionValue attackCollisionValue, Collider2D collider2D)
     {
         if (condition != Afterimage.Condition.Null || invincible || avoidance)
         {
@@ -774,40 +838,50 @@ public class PlayerManager : MonoBehaviour
             {
                 afterimage.SetCondition(condition, 0.6f);
             }
-            yield break;
+            return;
         }
         else if (condition == Afterimage.Condition.Invincible || invincible)
         {
             GameManager.popTextManager.SetPopText("無敵", this, anotherSpeechBubbleColor, PopTextManager.Kind.Invincible);
-            yield break;
+            return;
         }
         else if (condition == Afterimage.Condition.Armor)
         {
             GameManager.popTextManager.SetPopText("アーマー", this, anotherSpeechBubbleColor, PopTextManager.Kind.Armor);
             hp -= attackCollisionValue.damageRate;
             GameManager.damageManager.SetDamage((int)attackCollisionValue.damageRate, transform, false);
-            yield break;
+            return;
         }
-        if (tweenerX == null)
-        {
-            guardAcceptable = true; 
-            guardAcceptableAuto = true;
-            guard = false;
-        }
-        yield return new WaitForSeconds(0.02f);
-        guardAcceptableAuto = false;
-        yield return new WaitForSeconds(0.01f);
-        guardAcceptable = false;
-        if (guard)
+        //if (tweenerX == null)
+        //{
+        //    guardAcceptable = true; 
+        //    guardAcceptableAuto = true;
+        //    guard = false;
+        //}
+        //yield return new WaitForSeconds(0.02f);
+        //guardAcceptableAuto = false;
+        //yield return new WaitForSeconds(0.01f);
+        //guardAcceptable = false;
+        //ジャストガード
+        if (justguard)
         {
             HitStop(0.45f, 0.15f, true, collider2D.ClosestPoint(transform.position));
             GameManager.popTextManager.SetPopText("ガード", this, anotherSpeechBubbleColor, PopTextManager.Kind.Guard);
-            yield break;
+            StartCoroutine(Invincible(0.6f));
+            condition = Afterimage.Condition.InvinciblePlus;
+            foreach (var afterimage in afterimages)
+            {
+                afterimage.SetCondition(condition, 0.6f);
+            }
+            guardParticle.Play();
+            GameManager.attackCollisionManager.SetCollision(attackCollisionValueGuard, transform.position, null);
+            return;
         }
-        down += attackCollisionValue.down;
-        hp -= attackCollisionValue.damageRate;
+        float guardRate = guard0 ? 0.2f : 1f;
+        down += attackCollisionValue.down * guardRate;
+        hp -= attackCollisionValue.damageRate * guardRate;
         if (hp <= 0f) down += 1f;
-        GameManager.damageManager.SetDamage((int)attackCollisionValue.damageRate, transform, false);
+        GameManager.damageManager.SetDamage((int)(attackCollisionValue.damageRate * guardRate), transform, false);
         if (down >= 1f)
         {
             var duration = attackCollisionValue.force.y / 12;
@@ -836,25 +910,44 @@ public class PlayerManager : MonoBehaviour
         }
         else
         {
-            var duration = (Mathf.Abs(attackCollisionValue.force.x) + attackCollisionValue.force.y) / 24;
-            if (duration <= 0f) yield break;
+            var duration = (Mathf.Abs(attackCollisionValue.force.x) + attackCollisionValue.force.y) / 24 * guardRate;
+            if (duration <= 0f) return;
             GameManager.cameraManager.ShakeCamera(duration);
             ResetForce(duration);
-            skill = true;
-            vector3 = transform.position + attackCollisionValue.force / 5 * (left ? -1 : 1);
-            tweenerX = transform.DOMoveX(vector3.x, holdout)
-                .SetEase(Ease.OutSine)
-                .OnComplete(() =>
-                {
-                    tweenerX = null;
-                    holdout = 0f;
-                    animator.SetTrigger(knockEndHash);
-                    foreach(var afterimage in afterimages)
+            vector3 = transform.position + attackCollisionValue.force / 5 * (left ? -1 : 1) * guardRate;
+            if (!guard0)
+            {
+                tweenerX = transform.DOMoveX(vector3.x, holdout)
+                    .SetEase(Ease.OutSine)
+                    .OnComplete(() =>
                     {
-                        afterimage.SetTrigger(knockEndHash);
-                    }
-                });
-            GameManager.popTextManager.SetPopText("うっ！", this, damageSpeechBubbleColor);
+                        tweenerX = null;
+                        holdout = 0f;
+                        animator.SetTrigger(knockEndHash);
+                        foreach (var afterimage in afterimages)
+                        {
+                            afterimage.SetTrigger(knockEndHash);
+                        }
+                    });
+                GameManager.popTextManager.SetPopText("うっ！", this, damageSpeechBubbleColor);
+            }
+            else
+            {
+                tweenerX = transform.DOMoveX(vector3.x, holdout)
+                    .SetEase(Ease.OutSine)
+                    .OnComplete(() =>
+                    {
+                        tweenerX = null;
+                        holdout = 0f;
+                        skill = false;
+                        action?.Invoke();
+                    })
+                    .OnKill(() =>
+                    {
+                        action?.Invoke();
+                    });
+            }
+            skill = true;
         }
     }
     //ノックバックの更新
@@ -862,12 +955,14 @@ public class PlayerManager : MonoBehaviour
     {
         holdout = duration + (holdout - (tweenerX != null ? tweenerX.Elapsed() : 0f)) / 2;
         tweenerX?.Kill();
+        tweenerX = null;
     }
     //ノックバックダウンの移動の更新
     void ResetForce()
     {
         holdout = 0f;
         tweenerX?.Kill();
+        tweenerX = null;
         tweenerY?.Kill();
     }
     //ダウンの更新

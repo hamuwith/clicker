@@ -14,7 +14,6 @@ public class AnimetorMoveBoss : AnimetorMoveScript
         y = 0;
         boss = sub ? GameManager.bossSub : GameManager.boss;
         if (boss == null) return;
-        Debug.Log($"{sub}, {boss}");
         //ボスのアニメーション開始時処理
         boss.AnimationStart(stateInfo.shortNameHash, skillId, cooltime, condition, invincibleTime, animator, cycleOffset);
         //ボス本体なら

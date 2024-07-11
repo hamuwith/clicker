@@ -179,13 +179,13 @@ public class Enemy : MonoBehaviour
     public void Damage(AttackCollisionValue attackCollisionValue, float rightRate,  Collider2D collision)
     {        
         //残像表示時、視覚でわかるように残像の拡大
-        if (condition != Afterimage.Condition.Null || invincible || armorbool)
-        {
-            foreach (var afterimage in afterimages)
-            {
-                afterimage?.SetScale();
-            }
-        }
+        //if (condition != Afterimage.Condition.Null || invincible || armorbool)
+        //{
+        //    foreach (var afterimage in afterimages)
+        //    {
+        //        afterimage?.SetScale();
+        //    }
+        //}
         //無敵ならここまで
         if (condition == Afterimage.Condition.Invincible || invincible) return;
         if (!attackCollisionValue.sub && Counter()) return;
@@ -398,7 +398,6 @@ public class Enemy : MonoBehaviour
     //初期化
     public virtual void Start0(Transform spawnTransform, Transform deathPosition)
     {
-        Debug.Log("in2");
         death = true;
         scale = transform.localScale.x;
         effectCounts = new float[(int)AttackCollisionValue.Effect.Length - 1];
@@ -420,7 +419,6 @@ public class Enemy : MonoBehaviour
     //スポン時の値の設定
     void SetSpawn(float _random, int num = default)
     {
-        Debug.Log(num);
         holdout = 0f;
         hp = maxhp;
         attackCount = 0f;
